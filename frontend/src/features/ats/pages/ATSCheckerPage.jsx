@@ -46,11 +46,17 @@ export default function ATSCheckerPage() {
     }
   };
 
+  const handleCheckAgain = () => {
+    setResult(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const selectedResumeTitle = resumes.find((r) => r.id === resumeId)?.title || 'Selected Resume';
+
   return (
     <div>
       <PageHeader
         title="ATS Checker"
-        description="Evaluate one of your resumes against a job description for keyword match and formatting issues."
       />
 
       {resumesLoading ? (
@@ -63,42 +69,68 @@ export default function ATSCheckerPage() {
           actionLabel="Create a resume"
           actionHref="/my-resumes"
         />
-      ) : (
+      ) : result ? (
+        /* Results View — displayed directly without form clutter */
         <div className="space-y-6">
-          <Card title="Run a check">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Select
-                label="Resume"
-                id="resumeId"
-                required
-                value={resumeId}
-                onChange={(e) => setResumeId(e.target.value)}
-                options={resumeOptions}
-                placeholder="Select a resume"
-              />
-              <TextArea
-                label="Job Description"
-                id="jobDescription"
-                required
-                rows={8}
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste the full job description here..."
-                helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
-              />
-
-              {error && <ErrorMessage message={error} />}
-
-              <div className="flex justify-end">
-                <Button type="submit" isLoading={isSubmitting}>
-                  {isSubmitting ? 'Checking...' : 'Check Resume'}
-                </Button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 rounded-xl border border-border shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">fact_check</span>
+                <h2 className="text-lg font-bold text-text-primary">ATS Analysis Report</h2>
               </div>
-            </form>
-          </Card>
+              <p className="text-xs text-text-secondary mt-1">
+                Resume: <span className="font-semibold text-text-primary">{selectedResumeTitle}</span>
+              </p>
+            </div>
+            <Button onClick={handleCheckAgain} variant="secondary" size="md">
+              <span className="material-symbols-outlined text-base mr-1.5">refresh</span>
+              Check Again
+            </Button>
+          </div>
 
-          {result && <AtsResults result={result} />}
+          <AtsResults result={result} />
+
+          {/* Bottom Action Bar */}
+          <div className="flex justify-center pt-2 pb-6">
+            <Button onClick={handleCheckAgain} variant="primary" size="lg">
+              <span className="material-symbols-outlined text-lg mr-2">refresh</span>
+              Check Again / Run Another Check
+            </Button>
+          </div>
         </div>
+      ) : (
+        /* Form View */
+        <Card title="Run a check">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Select
+              label="Resume"
+              id="resumeId"
+              required
+              value={resumeId}
+              onChange={(e) => setResumeId(e.target.value)}
+              options={resumeOptions}
+              placeholder="Select a resume"
+            />
+            <TextArea
+              label="Job Description"
+              id="jobDescription"
+              required
+              rows={8}
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              placeholder="Paste the full job description here..."
+              helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
+            />
+
+            {error && <ErrorMessage message={error} />}
+
+            <div className="flex justify-end">
+              <Button type="submit" isLoading={isSubmitting}>
+                {isSubmitting ? 'Checking...' : 'Check Resume'}
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
     </div>
   );
