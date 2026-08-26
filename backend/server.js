@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import atsRoutes from './routes/atsRoutes.js';
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/ats', atsRoutes);
 
 const server = app.listen(PORT, () => {
     console.log(`🚀 Local Backend listening on http://localhost:${PORT}`);

@@ -1,5 +1,5 @@
 import * as authService from '../services/authService.js';
-import { supabase } from '../config/supabase.js';
+import { supabase, createRequestClient } from '../config/supabase.js';
 
 function setAuthCookies(res, session) {
     if (!session) return;
@@ -73,7 +73,8 @@ export async function login(req, res) {
 
         setAuthCookies(res, data.session);
 
-        const profile = await authService.getUserProfile(data.user.id);
+        const requestClient = createRequestClient(data.session.access_token);
+        const profile = await authService.getUserProfile(requestClient, data.user.id);
 
         const userWithProfile = {
             id: data.user.id,
@@ -140,7 +141,8 @@ export async function getMe(req, res) {
             });
         }
 
-        const profile = await authService.getUserProfile(user.id);
+        const requestClient = createRequestClient(token);
+        const profile = await authService.getUserProfile(requestClient, user.id);
 
         const userWithProfile = {
             id: user.id,
@@ -189,7 +191,8 @@ export async function updateProfile(req, res) {
 
         const { fullName } = req.body;
 
-        await authService.updateUserProfile(user.id, fullName);
+        const requestClient = createRequestClient(token);
+        await authService.updateUserProfile(requestClient, user.id, fullName);
 
         res.status(200).json({
             success: true

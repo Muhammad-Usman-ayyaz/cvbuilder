@@ -1,5 +1,3 @@
-import { supabase } from '../config/supabase.js';
-
 function fromDbRow(row) {
     if (!row) return undefined;
     return {
@@ -23,10 +21,18 @@ function toDbRow(resume, userId) {
     };
 }
 
-export async function getAllResumes(userId) {
+/**
+ * Every function below takes `client` as its first argument — a
+ * request-scoped Supabase client (see config/supabase.js's
+ * createRequestClient) carrying the calling user's own access token, so
+ * RLS evaluates `auth.uid()` against that specific user rather than
+ * whatever session happens to be cached on a shared client.
+ */
+
+export async function getAllResumes(client, userId) {
     if (!userId) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('resumes')
         .select('*')
         .eq('user_id', userId)
@@ -36,19 +42,25 @@ export async function getAllResumes(userId) {
     return data.map(fromDbRow);
 }
 
-export async function getResumeById(id) {
-    const { data, error } = await supabase
+/**
+ * Fetches a resume by id, scoped to the owning user — always use this
+ * (never fetch by id alone) so ownership is enforced in the query itself
+ * instead of relying solely on Supabase RLS.
+ */
+export async function getResumeByIdForUser(client, id, userId) {
+    const { data, error } = await client
         .from('resumes')
         .select('*')
         .eq('id', id)
+        .eq('user_id', userId)
         .maybeSingle();
 
     if (error) throw error;
     return fromDbRow(data);
 }
 
-export async function upsertResume(resume, userId) {
-    const { data, error } = await supabase
+export async function upsertResume(client, resume, userId) {
+    const { data, error } = await client
         .from('resumes')
         .upsert(toDbRow(resume, userId))
         .select()
@@ -58,11 +70,17 @@ export async function upsertResume(resume, userId) {
     return fromDbRow(data);
 }
 
-export async function removeResume(id) {
-    const { error, count } = await supabase
+/**
+ * Deletes a resume by id, scoped to the owning user — always use this
+ * (never delete by id alone) so ownership is enforced in the query itself
+ * instead of relying solely on Supabase RLS.
+ */
+export async function removeResumeForUser(client, id, userId) {
+    const { error, count } = await client
         .from('resumes')
         .delete({ count: 'exact' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', userId);
 
     if (error) throw error;
     return (count ?? 0) > 0;

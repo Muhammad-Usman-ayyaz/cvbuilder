@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js';
+import { supabase, createRequestClient } from '../config/supabase.js';
 
 export async function requireAuth(req, res, next) {
     let token = req.cookies.access_token;
@@ -19,6 +19,9 @@ export async function requireAuth(req, res, next) {
         }
 
         req.user = user;
+        // Data queries must run through a client carrying this request's
+        // own token, not the shared anon client — see config/supabase.js.
+        req.supabase = createRequestClient(token);
         next();
     } catch (err) {
         res.status(500).json({ error: 'Server error during authentication' });

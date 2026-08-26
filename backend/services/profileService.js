@@ -1,9 +1,16 @@
-import { supabase } from '../config/supabase.js';
+import { createAdminClient } from '../config/supabase.js';
 
-export async function getProfile(userId) {
+/**
+ * Both functions take `client` as their first argument — a request-scoped
+ * Supabase client (see config/supabase.js's createRequestClient) carrying
+ * the calling user's own access token, so RLS evaluates `auth.uid()`
+ * against that specific user.
+ */
+
+export async function getProfile(client, userId) {
     if (!userId) return null;
 
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -13,7 +20,7 @@ export async function getProfile(userId) {
     return data;
 }
 
-export async function upsertProfile(profileData, userId) {
+export async function upsertProfile(client, profileData, userId) {
     if (!userId) throw new Error("User ID is required");
 
     // Supabase profiles table uses 'id' as the foreign key to auth.users
@@ -41,9 +48,43 @@ export async function upsertProfile(profileData, userId) {
     // Remove undefined fields to prevent overwriting with null unintentionally if partial update
     Object.keys(dbPayload).forEach(key => dbPayload[key] === undefined && delete dbPayload[key]);
 
-    const { data, error } = await supabase
+    // Find out whether this user already has a profile row, using the
+    // normal user-scoped client (RLS-safe — this is just a SELECT).
+    const { data: existing, error: selectError } = await client
         .from('profiles')
-        .upsert(dbPayload)
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (selectError) throw selectError;
+
+    if (existing) {
+        // Row already exists — a plain UPDATE is allowed by the existing
+        // RLS policy, so keep using the normal per-request client.
+        const { data, error } = await client
+            .from('profiles')
+            .update(dbPayload)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
+    // No row yet — inserting requires bypassing RLS, since `profiles` has
+    // no INSERT policy for authenticated users right now (see
+    // createAdminClient's doc comment for why). Because the admin client
+    // bypasses RLS entirely, we must enforce ownership ourselves here:
+    // the row being inserted must belong to the authenticated caller.
+    if (dbPayload.id !== userId) {
+        throw new Error('Profile id does not match the authenticated user.');
+    }
+
+    const admin = createAdminClient();
+    const { data, error } = await admin
+        .from('profiles')
+        .insert(dbPayload)
         .select()
         .single();
 

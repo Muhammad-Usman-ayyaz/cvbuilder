@@ -1,7 +1,8 @@
-import { supabase } from '../config/supabase.js';
+import { createAuthClient } from '../config/supabase.js';
 
 export async function signUpUser({ email, password, fullName }) {
-    const { data, error } = await supabase.auth.signUp({
+    const authClient = createAuthClient();
+    const { data, error } = await authClient.auth.signUp({
         email,
         password,
         options: { data: { full_name: fullName } },
@@ -11,7 +12,8 @@ export async function signUpUser({ email, password, fullName }) {
 }
 
 export async function loginUser({ email, password }) {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const authClient = createAuthClient();
+    const { data, error } = await authClient.auth.signInWithPassword({
         email,
         password,
     });
@@ -20,12 +22,18 @@ export async function loginUser({ email, password }) {
 }
 
 export async function logoutUser() {
-    const { error } = await supabase.auth.signOut();
+    const authClient = createAuthClient();
+    const { error } = await authClient.auth.signOut();
     if (error) throw error;
 }
 
-export async function getUserProfile(userId) {
-    const { data: profile } = await supabase
+/**
+ * `client` is a request-scoped Supabase client carrying the calling
+ * user's own access token (see config/supabase.js's createRequestClient),
+ * so RLS evaluates `auth.uid()` against that specific user.
+ */
+export async function getUserProfile(client, userId) {
+    const { data: profile } = await client
         .from('profiles')
         .select('full_name')
         .eq('id', userId)
@@ -34,8 +42,8 @@ export async function getUserProfile(userId) {
     return profile;
 }
 
-export async function updateUserProfile(userId, fullName) {
-    const { error } = await supabase
+export async function updateUserProfile(client, userId, fullName) {
+    const { error } = await client
         .from('profiles')
         .update({ full_name: fullName })
         .eq('id', userId);
