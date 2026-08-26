@@ -1,20 +1,49 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { exportResumeAsPdf } from '../../utils/exportPdf';
 
 export const StudioHeader = ({
-    resumeTitle = 'Untitled Resume',
+    title,
+    resumeTitle,
     onTitleChange,
-    saveStatus = 'Saved', // 'Saved', 'Saving...', 'Unsaved'
+    saveStatus = 'Saved',
     onToggleTemplates,
-    onToggleColors
+    onToggleColors,
+    onBack,
+    onExportPdf,
+    resume
 }) => {
     const navigate = useNavigate();
+    const [isExporting, setIsExporting] = useState(false);
 
-    // Triggers browser native print -> Save as PDF
-    // CSS in globals.css (@media print) automatically isolate #resume-print-canvas
-    // and output vector/selectable text for ATS compatibility.
-    const handleExportPdf = () => {
-        window.print();
+    const displayTitle = title ?? resumeTitle ?? 'Untitled Resume';
+
+    const handleExport = async () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        try {
+            if (onExportPdf) {
+                await onExportPdf();
+            } else if (resume) {
+                await exportResumeAsPdf(resume);
+            } else {
+                window.print();
+            }
+        } catch (err) {
+            console.error('Export failed:', err);
+            // Fallback to window.print if export throws
+            window.print();
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleBackClick = () => {
+        if (onBack) {
+            onBack();
+        } else {
+            navigate('/my-resumes');
+        }
     };
 
     return (
@@ -22,7 +51,7 @@ export const StudioHeader = ({
             {/* Left Section: Back Button & Resume Name */}
             <div className="flex items-center gap-4">
                 <button
-                    onClick={() => navigate('/resumes')}
+                    onClick={handleBackClick}
                     className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
                     title="Back to My Resumes"
                 >
@@ -35,7 +64,7 @@ export const StudioHeader = ({
                 <div className="flex items-center gap-3">
                     <input
                         type="text"
-                        value={resumeTitle}
+                        value={displayTitle}
                         onChange={(e) => onTitleChange?.(e.target.value)}
                         className="text-base font-semibold bg-transparent text-text-primary border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 rounded-xs transition-colors"
                         placeholder="Resume Title"
@@ -44,10 +73,13 @@ export const StudioHeader = ({
                     {/* Save Status Indicator */}
                     <span className="text-xs text-text-secondary flex items-center gap-1">
                         <span
-                            className={`w-2 h-2 rounded-full ${saveStatus === 'Saving...' ? 'bg-warning animate-pulse' : 'bg-success'
-                                }`}
+                            className={`w-2 h-2 rounded-full ${
+                                saveStatus === 'Saving...' || saveStatus === 'saving'
+                                    ? 'bg-warning animate-pulse'
+                                    : 'bg-success'
+                            }`}
                         />
-                        {saveStatus}
+                        {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : saveStatus}
                     </span>
                 </div>
             </div>
@@ -78,16 +110,18 @@ export const StudioHeader = ({
 
                 {/* Primary Export Button */}
                 <button
-                    onClick={handleExportPdf}
-                    className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-lg shadow-xs transition-colors cursor-pointer"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-white bg-primary hover:bg-primary-hover disabled:opacity-75 rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
-                    <span className="material-symbols-outlined text-lg">download</span>
-                    <span>Export PDF</span>
+                    <span className={`material-symbols-outlined text-lg ${isExporting ? 'animate-spin' : ''}`}>
+                        {isExporting ? 'progress_activity' : 'download'}
+                    </span>
+                    <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
                 </button>
             </div>
         </header>
     );
 };
 
-// Export as default to prevent import mismatch errors in ResumeStudioPage.jsx
 export default StudioHeader;

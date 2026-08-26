@@ -69,26 +69,6 @@ export default function MinimalTemplate({ content, themeColor }) {
                     </Section>
                 )}
 
-                {experience.length > 0 && (
-                    <Section title="Experience">
-                        <div className="space-y-5">
-                            {experience.map((item) => (
-                                <div key={item.id}>
-                                    <div className="font-medium text-slate-900">{item.role || 'Untitled role'}</div>
-                                    <div className="text-[12px] text-slate-400">
-                                        {[item.company, item.location].filter(Boolean).join(', ')}
-                                        {'   '}
-                                        {formatMonthYear(item.startDate)} – {item.current ? 'Present' : formatMonthYear(item.endDate)}
-                                    </div>
-                                    {item.description && (
-                                        <p className="mt-1.5 text-slate-600 whitespace-pre-line break-words">{item.description}</p>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </Section>
-                )}
-
                 {education.length > 0 && (
                     <Section title="Education">
                         <div className="space-y-5">
@@ -99,6 +79,26 @@ export default function MinimalTemplate({ content, themeColor }) {
                                         {[item.school, item.location].filter(Boolean).join(', ')}
                                         {'   '}
                                         {formatMonthYear(item.startDate)} – {formatMonthYear(item.endDate)}
+                                    </div>
+                                    {item.description && (
+                                        <p className="mt-1.5 text-slate-600 whitespace-pre-line break-words">{item.description}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )}
+
+                {experience.length > 0 && (
+                    <Section title="Experience">
+                        <div className="space-y-5">
+                            {experience.map((item) => (
+                                <div key={item.id}>
+                                    <div className="font-medium text-slate-900">{item.role || 'Untitled role'}</div>
+                                    <div className="text-[12px] text-slate-400">
+                                        {[item.company, item.location].filter(Boolean).join(', ')}
+                                        {'   '}
+                                        {formatMonthYear(item.startDate)} – {item.current ? 'Present' : formatMonthYear(item.endDate)}
                                     </div>
                                     {item.description && (
                                         <p className="mt-1.5 text-slate-600 whitespace-pre-line break-words">{item.description}</p>

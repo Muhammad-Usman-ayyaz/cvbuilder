@@ -58,6 +58,9 @@ const server = app.listen(PORT, () => {
 
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${PORT} is already in use. Kill the process or pick another port.`);
+        console.error(`❌ Port ${PORT} is already in use. Kill the process using port ${PORT} or stop the other terminal instance.`);
+        process.exit(1);
+    } else {
+        console.error('❌ Server error:', error);
     }
 });

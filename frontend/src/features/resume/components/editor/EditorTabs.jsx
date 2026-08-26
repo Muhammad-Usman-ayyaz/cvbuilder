@@ -7,8 +7,8 @@ import SkillsForm from './SkillsForm';
 
 const TABS = [
     { id: 'personal', label: 'Personal', icon: 'person' },
-    { id: 'experience', label: 'Experience', icon: 'work' },
     { id: 'education', label: 'Education', icon: 'school' },
+    { id: 'experience', label: 'Experience', icon: 'work' },
     { id: 'projects', label: 'Projects', icon: 'code' },
     { id: 'skills', label: 'Skills', icon: 'star' },
 ];

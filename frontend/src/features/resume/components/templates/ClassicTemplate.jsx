@@ -156,6 +156,96 @@ export default function ClassicTemplate({ content, themeColor }) {
                 </Section>
             )}
 
+            {/* ================= EDUCATION ================= */}
+            {education.length > 0 && (
+                <Section
+                    title="Education"
+                    themeColor={themeColor}
+                >
+                    <div className="space-y-4">
+                        {education.map((item) => (
+                            <div
+                                key={item.id}
+                                className="min-w-0"
+                            >
+                                {/* Degree + Date */}
+                                <div
+                                    className="
+                                        flex
+                                        items-baseline
+                                        justify-between
+                                        gap-3
+                                        min-w-0
+                                    "
+                                >
+                                    <span
+                                        className="
+                                            font-semibold
+                                            text-slate-900
+                                            min-w-0
+                                            break-words
+                                        "
+                                        style={{
+                                            overflowWrap: 'anywhere',
+                                        }}
+                                    >
+                                        {item.degree || 'Untitled degree'}
+                                    </span>
+
+                                    <span
+                                        className="
+                                            text-[12px]
+                                            text-slate-500
+                                            shrink-0
+                                        "
+                                    >
+                                        {formatMonthYear(item.startDate)}
+                                        {' — '}
+                                        {formatMonthYear(item.endDate)}
+                                    </span>
+                                </div>
+
+                                {/* School + Location */}
+                                <div
+                                    className="
+                                        text-[12px]
+                                        text-slate-500
+                                        italic
+                                        min-w-0
+                                        break-words
+                                    "
+                                    style={{
+                                        overflowWrap: 'anywhere',
+                                    }}
+                                >
+                                    {[item.school, item.location]
+                                        .filter(Boolean)
+                                        .join(', ')}
+                                </div>
+
+                                {/* Description */}
+                                {item.description && (
+                                    <p
+                                        className="
+                                            mt-1
+                                            text-slate-700
+                                            whitespace-pre-line
+                                            break-words
+                                            min-w-0
+                                        "
+                                        style={{
+                                            overflowWrap: 'anywhere',
+                                        }}
+                                    >
+                                        {item.description}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+            )}
+
             {/* ================= EXPERIENCE ================= */}
             {experience.length > 0 && (
                 <Section
@@ -221,96 +311,6 @@ export default function ClassicTemplate({ content, themeColor }) {
                                     }}
                                 >
                                     {[item.company, item.location]
-                                        .filter(Boolean)
-                                        .join(', ')}
-                                </div>
-
-                                {/* Description */}
-                                {item.description && (
-                                    <p
-                                        className="
-                                            mt-1
-                                            text-slate-700
-                                            whitespace-pre-line
-                                            break-words
-                                            min-w-0
-                                        "
-                                        style={{
-                                            overflowWrap: 'anywhere',
-                                        }}
-                                    >
-                                        {item.description}
-                                    </p>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </Section>
-            )}
-
-            {/* ================= EDUCATION ================= */}
-            {education.length > 0 && (
-                <Section
-                    title="Education"
-                    themeColor={themeColor}
-                >
-                    <div className="space-y-4">
-                        {education.map((item) => (
-                            <div
-                                key={item.id}
-                                className="min-w-0"
-                            >
-                                {/* Degree + Date */}
-                                <div
-                                    className="
-                                        flex
-                                        items-baseline
-                                        justify-between
-                                        gap-3
-                                        min-w-0
-                                    "
-                                >
-                                    <span
-                                        className="
-                                            font-semibold
-                                            text-slate-900
-                                            min-w-0
-                                            break-words
-                                        "
-                                        style={{
-                                            overflowWrap: 'anywhere',
-                                        }}
-                                    >
-                                        {item.degree || 'Untitled degree'}
-                                    </span>
-
-                                    <span
-                                        className="
-                                            text-[12px]
-                                            text-slate-500
-                                            shrink-0
-                                        "
-                                    >
-                                        {formatMonthYear(item.startDate)}
-                                        {' — '}
-                                        {formatMonthYear(item.endDate)}
-                                    </span>
-                                </div>
-
-                                {/* School + Location */}
-                                <div
-                                    className="
-                                        text-[12px]
-                                        text-slate-500
-                                        italic
-                                        min-w-0
-                                        break-words
-                                    "
-                                    style={{
-                                        overflowWrap: 'anywhere',
-                                    }}
-                                >
-                                    {[item.school, item.location]
                                         .filter(Boolean)
                                         .join(', ')}
                                 </div>

@@ -8,6 +8,7 @@ import TemplateSwitcher from '../components/studio/TemplateSwitcher';
 import ThemeColorPicker from '../components/studio/ThemeColorPicker';
 import ResumeCanvas from '../components/studio/ResumeCanvas';
 import EditorTabs from '../components/editor/EditorTabs';
+import { exportResumeAsPdf } from '../utils/exportPdf';
 
 const AUTOSAVE_DELAY_MS = 800;
 
@@ -136,8 +137,9 @@ export default function ResumeStudioPage() {
                     title={resume.title}
                     onTitleChange={(nextTitle) => setResume((prev) => ({ ...prev, title: nextTitle }))}
                     onBack={() => navigate('/my-resumes')}
-                    onExportPdf={() => window.print()}
+                    onExportPdf={() => exportResumeAsPdf(resume)}
                     saveStatus={saveStatus}
+                    resume={resume}
                 />
             </div>
 
