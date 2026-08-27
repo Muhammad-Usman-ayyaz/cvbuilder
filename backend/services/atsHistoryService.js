@@ -78,6 +78,22 @@ export async function getHistoryForUser(client, userId) {
 }
 
 /**
+ * Counts how many checks a user has ever run — used to enforce the
+ * lifetime check cap. Deliberately a live COUNT against ats_checks rather
+ * than a separate counter column, so it stays accurate even if rows are
+ * ever viewed/deleted through another path (e.g. a resume delete cascade).
+ */
+export async function countChecksForUser(client, userId) {
+    const { count, error } = await client
+        .from('ats_checks')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+    if (error) throw error;
+    return count ?? 0;
+}
+
+/**
  * Fetches one past check's full result, scoped to the owning user — same
  * pattern as resumeService.getResumeByIdForUser.
  */

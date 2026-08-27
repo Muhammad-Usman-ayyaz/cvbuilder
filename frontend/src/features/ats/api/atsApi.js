@@ -7,6 +7,9 @@ export async function checkAts({ resumeId, jobDescription }) {
     });
 }
 
+/**
+ * @returns {Promise<{ history: Array<object>, count: number, limit: number }>}
+ */
 export async function getAtsHistory() {
     return fetchApi('/ats/history', {
         method: 'GET',

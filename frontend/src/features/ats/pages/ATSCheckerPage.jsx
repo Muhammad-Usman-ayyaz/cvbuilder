@@ -23,15 +23,21 @@ export default function ATSCheckerPage() {
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [checkCount, setCheckCount] = useState(0);
+  const [checkLimit, setCheckLimit] = useState(null);
 
   const resumeOptions = resumes.map((r) => ({ value: r.id, label: r.title }));
   const resumeTitleById = Object.fromEntries(resumes.map((r) => [r.id, r.title]));
+
+  const isCapped = checkLimit !== null && checkCount >= checkLimit;
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
       const data = await getAtsHistory();
-      setHistory(data);
+      setHistory(data.history);
+      setCheckCount(data.count);
+      setCheckLimit(data.limit);
     } catch {
       // History is supplementary — a failed load shouldn't block the page.
       setHistory([]);
@@ -48,6 +54,10 @@ export default function ATSCheckerPage() {
     e.preventDefault();
     setError('');
 
+    if (isCapped) {
+      setError(`You've used all ${checkLimit} of your ATS checks.`);
+      return;
+    }
     if (!resumeId) {
       setError('Please select a resume.');
       return;
@@ -140,12 +150,26 @@ export default function ATSCheckerPage() {
       ) : (
         /* Form View */
         <div className="space-y-6">
-          <Card title="Run a check">
+          <Card
+            title="Run a check"
+            subtitle={
+              checkLimit !== null
+                ? `${Math.max(checkLimit - checkCount, 0)} of ${checkLimit} checks remaining`
+                : undefined
+            }
+          >
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isCapped && (
+                <ErrorMessage
+                  title="Check limit reached"
+                  message={`You've used all ${checkLimit} of your ATS checks.`}
+                />
+              )}
               <Select
                 label="Resume"
                 id="resumeId"
                 required
+                disabled={isCapped}
                 value={resumeId}
                 onChange={(e) => setResumeId(e.target.value)}
                 options={resumeOptions}
@@ -155,6 +179,7 @@ export default function ATSCheckerPage() {
                 label="Job Description"
                 id="jobDescription"
                 required
+                disabled={isCapped}
                 rows={8}
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
@@ -162,10 +187,10 @@ export default function ATSCheckerPage() {
                 helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
               />
 
-              {error && <ErrorMessage message={error} />}
+              {error && !isCapped && <ErrorMessage message={error} />}
 
               <div className="flex justify-end">
-                <Button type="submit" isLoading={isSubmitting}>
+                <Button type="submit" isLoading={isSubmitting} disabled={isCapped}>
                   {isSubmitting ? 'Checking...' : 'Check Resume'}
                 </Button>
               </div>
