@@ -321,6 +321,49 @@ export function checkFormatting(resumeContent) {
     return { checks };
 }
 
+const MIN_JD_WORDS = 20;
+const MIN_JD_KEYWORDS = 3;
+
+/**
+ * A resume is "effectively empty" if none of its major content sections
+ * have anything in them — in that case a score is close to meaningless
+ * (there's nothing for keywords to match against, and every formatting
+ * check will fail), so callers should surface a warning instead of just
+ * showing a low score with no explanation.
+ */
+function isResumeEffectivelyEmpty(resumeContent) {
+    const content = resumeContent || {};
+    const experience = content.experience || [];
+    const education = content.education || [];
+    const skills = content.skills || [];
+    const hasSkillItems = skills.some((g) => (g.items || []).length > 0);
+
+    return experience.length === 0 && education.length === 0 && !hasSkillItems;
+}
+
+/**
+ * Builds the list of result-level warnings — data-quality issues with the
+ * inputs themselves, as opposed to the formatting/keyword checks below
+ * (which assess quality of a *reasonable* input). Kept separate from
+ * scoring so a thin/empty input still gets scored normally; the warning
+ * just tells the user the score isn't very meaningful.
+ * @returns {string[]}
+ */
+function buildWarnings(resumeContent, jobDescription, keywordCount) {
+    const warnings = [];
+
+    if (isResumeEffectivelyEmpty(resumeContent)) {
+        warnings.push('This resume appears to be empty — fill it out for a meaningful score.');
+    }
+
+    const jdWordCount = (jobDescription.match(/\S+/g) || []).length;
+    if (jdWordCount < MIN_JD_WORDS || keywordCount < MIN_JD_KEYWORDS) {
+        warnings.push('This job description is very short — results may not be meaningful.');
+    }
+
+    return warnings;
+}
+
 /**
  * Combines keyword match and formatting checks into one overall score.
  * Weighting: keyword match matters most for a specific job application
@@ -329,7 +372,8 @@ export function checkFormatting(resumeContent) {
  * @returns {{
  *   overallScore: number,
  *   keywordMatch: { score: number, matched: string[], missing: string[] },
- *   formatting: { checks: Array<{label: string, passed: boolean, note: string}> }
+ *   formatting: { checks: Array<{label: string, passed: boolean, note: string}> },
+ *   warnings: string[]
  * }}
  */
 export function analyzeResume(resumeContent, jobDescription) {
@@ -342,5 +386,8 @@ export function analyzeResume(resumeContent, jobDescription) {
 
     const overallScore = Math.round(keywordMatch.score * 0.7 + formattingScore * 0.3);
 
-    return { overallScore, keywordMatch, formatting };
+    const keywordCount = keywordMatch.matched.length + keywordMatch.missing.length;
+    const warnings = buildWarnings(resumeContent, jobDescription, keywordCount);
+
+    return { overallScore, keywordMatch, formatting, warnings };
 }

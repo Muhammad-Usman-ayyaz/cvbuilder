@@ -30,6 +30,20 @@ function KeywordChip({ label, matched }) {
   );
 }
 
+function WarningBanner({ warnings }) {
+  if (!warnings || warnings.length === 0) return null;
+  return (
+    <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex gap-3">
+      <span className="material-symbols-outlined text-warning text-[20px] shrink-0">warning</span>
+      <div className="space-y-1">
+        {warnings.map((warning) => (
+          <p key={warning} className="text-sm font-medium text-warning">{warning}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FormattingCheck({ label, passed, note }) {
   return (
     <div className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0">
@@ -48,10 +62,12 @@ function FormattingCheck({ label, passed, note }) {
 }
 
 export default function AtsResults({ result }) {
-  const { overallScore, keywordMatch, formatting } = result;
+  const { overallScore, keywordMatch, formatting, warnings } = result;
 
   return (
     <div className="space-y-6">
+      <WarningBanner warnings={warnings} />
+
       <Card>
         <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10 justify-center">
           <ScoreGauge score={overallScore} label="Overall ATS Score" />

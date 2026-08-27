@@ -57,6 +57,7 @@ export default function ATSCheckerPage() {
     <div>
       <PageHeader
         title="ATS Checker"
+        description="Check a resume against a job description for keyword match and formatting issues. Results replace this form until you click Check Again."
       />
 
       {resumesLoading ? (
