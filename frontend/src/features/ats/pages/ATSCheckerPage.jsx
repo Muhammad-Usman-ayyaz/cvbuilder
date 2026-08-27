@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PageHeader from '../../../components/layout/PageHeader';
 import Card from '../../../components/common/Card';
 import Select from '../../../components/common/Select';
@@ -8,8 +8,9 @@ import ErrorMessage from '../../../components/common/ErrorMessage';
 import EmptyState from '../../../components/common/EmptyState';
 import Loader from '../../../components/feedback/Loader';
 import { useResumes } from '../../resume/hooks/useResumes';
-import { checkAts } from '../api/atsApi';
+import { checkAts, getAtsHistory, getAtsHistoryItem } from '../api/atsApi';
 import AtsResults from '../components/AtsResults';
+import AtsHistoryPanel from '../components/AtsHistoryPanel';
 
 export default function ATSCheckerPage() {
   const { resumes, isLoading: resumesLoading } = useResumes();
@@ -18,8 +19,30 @@ export default function ATSCheckerPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [resultResumeId, setResultResumeId] = useState(null);
+
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const resumeOptions = resumes.map((r) => ({ value: r.id, label: r.title }));
+  const resumeTitleById = Object.fromEntries(resumes.map((r) => [r.id, r.title]));
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const data = await getAtsHistory();
+      setHistory(data);
+    } catch {
+      // History is supplementary — a failed load shouldn't block the page.
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,6 +62,8 @@ export default function ATSCheckerPage() {
     try {
       const data = await checkAts({ resumeId, jobDescription });
       setResult(data);
+      setResultResumeId(resumeId);
+      loadHistory();
     } catch (err) {
       setError(err.message || 'Failed to run the ATS check.');
     } finally {
@@ -48,10 +73,23 @@ export default function ATSCheckerPage() {
 
   const handleCheckAgain = () => {
     setResult(null);
+    setResultResumeId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const selectedResumeTitle = resumes.find((r) => r.id === resumeId)?.title || 'Selected Resume';
+  const handleSelectHistory = async (id) => {
+    setError('');
+    try {
+      const item = await getAtsHistoryItem(id);
+      setResult(item.result);
+      setResultResumeId(item.resumeId);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.message || 'Failed to load that past check.');
+    }
+  };
+
+  const selectedResumeTitle = resumeTitleById[resultResumeId] || '(resume deleted)';
 
   return (
     <div>
@@ -101,37 +139,46 @@ export default function ATSCheckerPage() {
         </div>
       ) : (
         /* Form View */
-        <Card title="Run a check">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Select
-              label="Resume"
-              id="resumeId"
-              required
-              value={resumeId}
-              onChange={(e) => setResumeId(e.target.value)}
-              options={resumeOptions}
-              placeholder="Select a resume"
-            />
-            <TextArea
-              label="Job Description"
-              id="jobDescription"
-              required
-              rows={8}
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the full job description here..."
-              helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
-            />
+        <div className="space-y-6">
+          <Card title="Run a check">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Select
+                label="Resume"
+                id="resumeId"
+                required
+                value={resumeId}
+                onChange={(e) => setResumeId(e.target.value)}
+                options={resumeOptions}
+                placeholder="Select a resume"
+              />
+              <TextArea
+                label="Job Description"
+                id="jobDescription"
+                required
+                rows={8}
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the full job description here..."
+                helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
+              />
 
-            {error && <ErrorMessage message={error} />}
+              {error && <ErrorMessage message={error} />}
 
-            <div className="flex justify-end">
-              <Button type="submit" isLoading={isSubmitting}>
-                {isSubmitting ? 'Checking...' : 'Check Resume'}
-              </Button>
-            </div>
-          </form>
-        </Card>
+              <div className="flex justify-end">
+                <Button type="submit" isLoading={isSubmitting}>
+                  {isSubmitting ? 'Checking...' : 'Check Resume'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          <AtsHistoryPanel
+            history={history}
+            resumeTitleById={resumeTitleById}
+            onSelect={handleSelectHistory}
+            isLoading={historyLoading}
+          />
+        </div>
       )}
     </div>
   );

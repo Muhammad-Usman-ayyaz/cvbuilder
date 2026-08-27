@@ -6,3 +6,15 @@ export async function checkAts({ resumeId, jobDescription }) {
         body: { resumeId, jobDescription },
     });
 }
+
+export async function getAtsHistory() {
+    return fetchApi('/ats/history', {
+        method: 'GET',
+    });
+}
+
+export async function getAtsHistoryItem(id) {
+    return fetchApi(`/ats/history/${id}`, {
+        method: 'GET',
+    });
+}
