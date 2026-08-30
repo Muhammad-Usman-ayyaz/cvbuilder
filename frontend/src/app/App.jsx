@@ -6,6 +6,7 @@ import ProtectedRoute from '../components/layout/ProtectedRoute';
 
 // Layouts
 import AppLayout from '../components/layout/AppLayout';
+import AuthLayout from '../components/layout/AuthLayout';
 
 // Auth pages
 import LoginPage from '../features/auth/pages/LoginPage';
@@ -33,7 +34,7 @@ function App() {
         <UIProvider>
           <Routes>
             {/* Public Auth Routes */}
-            <Route>
+            <Route element={<AuthLayout />}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

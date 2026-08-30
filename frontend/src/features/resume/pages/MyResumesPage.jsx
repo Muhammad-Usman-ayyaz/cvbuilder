@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useResumes } from '../hooks/useResumes';
 import ResumeCard from '../components/ResumeCard';
 import CreateResumeModal from '../components/CreateResumeModal';
 import EmptyState from '../../../components/common/EmptyState';
 import Button from '../../../components/common/Button';
+import Input from '../../../components/common/Input';
+import Select from '../../../components/common/Select';
 import PageHeader from '../../../components/layout/PageHeader';
+import { getAtsHistory } from '../../ats/api/atsApi';
+import { staggerContainer, fadeScale, fadeOnly } from '../../../lib/motion';
+
+const SORT_OPTIONS = [
+  { value: 'updated', label: 'Last Updated (Newest)' },
+  { value: 'name', label: 'Name (A–Z)' },
+];
 
 export default function MyResumesPage() {
   const navigate = useNavigate();
@@ -15,6 +25,53 @@ export default function MyResumesPage() {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [pendingDuplicate, setPendingDuplicate] = useState(null); // { id, defaultTitle }
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('updated');
+
+  // Latest ATS score per resume, keyed by resume id. History is already
+  // returned newest-first (see atsHistoryService.getHistoryForUser), so the
+  // first entry seen for a given resumeId while iterating IS its latest
+  // check — no new backend query needed, this just reuses the same
+  // /api/ats/history endpoint ATSCheckerPage already calls.
+  const [atsScores, setAtsScores] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getAtsHistory()
+      .then((data) => {
+        if (cancelled) return;
+        const scores = {};
+        for (const check of data.history) {
+          if (!(check.resumeId in scores)) {
+            scores[check.resumeId] = check.overallScore;
+          }
+        }
+        setAtsScores(scores);
+      })
+      .catch(() => {
+        // ATS score badges are supplementary — a failed fetch shouldn't
+        // block the page, resumes just render without badges.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const visibleResumes = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = query
+      ? resumes.filter((r) => (r.title || '').toLowerCase().includes(query))
+      : resumes;
+
+    const sorted = [...filtered];
+    if (sortBy === 'name') {
+      sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else {
+      sorted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    }
+    return sorted;
+  }, [resumes, searchQuery, sortBy]);
 
   const handleCreate = async (params) => {
     setIsSubmitting(true);
@@ -96,17 +153,52 @@ export default function MyResumesPage() {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
-          {resumes.map((resume) => (
-            <ResumeCard
-              key={resume.id}
-              resume={resume}
-              onOpen={handleOpen}
-              onDuplicate={handleDuplicateRequest}
-              onDelete={(id) => setPendingDeleteId(id)}
+        <>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 mb-4">
+            <Input
+              id="resume-search"
+              placeholder="Search resumes by title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="sm:max-w-xs"
+              rightElement={<span className="material-symbols-outlined text-text-secondary text-[18px]">search</span>}
             />
-          ))}
-        </div>
+            <Select
+              id="resume-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              options={SORT_OPTIONS}
+              placeholder=""
+              className="sm:max-w-[220px]"
+            />
+          </div>
+
+          {visibleResumes.length === 0 ? (
+            <p className="text-sm text-text-secondary text-center py-10">
+              No resumes match &ldquo;{searchQuery}&rdquo;.
+            </p>
+          ) : (
+            <motion.div
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+            >
+              <AnimatePresence mode="popLayout">
+                {visibleResumes.map((resume) => (
+                  <ResumeCard
+                    key={resume.id}
+                    resume={resume}
+                    atsScore={atsScores[resume.id]}
+                    onOpen={handleOpen}
+                    onDuplicate={handleDuplicateRequest}
+                    onDelete={(id) => setPendingDeleteId(id)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </>
       )}
 
       <CreateResumeModal
@@ -116,22 +208,28 @@ export default function MyResumesPage() {
         isSubmitting={isSubmitting}
       />
 
-      {pendingDuplicate && (
-        <DuplicateResumeDialog
-          defaultTitle={pendingDuplicate.defaultTitle}
-          onCancel={() => setPendingDuplicate(null)}
-          onConfirm={confirmDuplicate}
-          isSubmitting={isSubmitting}
-        />
-      )}
+      <AnimatePresence>
+        {pendingDuplicate && (
+          <DuplicateResumeDialog
+            key="duplicate-dialog"
+            defaultTitle={pendingDuplicate.defaultTitle}
+            onCancel={() => setPendingDuplicate(null)}
+            onConfirm={confirmDuplicate}
+            isSubmitting={isSubmitting}
+          />
+        )}
+      </AnimatePresence>
 
-      {pendingResume && (
-        <DeleteConfirmDialog
-          resumeTitle={pendingResume.title}
-          onCancel={() => setPendingDeleteId(null)}
-          onConfirm={confirmDelete}
-        />
-      )}
+      <AnimatePresence>
+        {pendingResume && (
+          <DeleteConfirmDialog
+            key="delete-dialog"
+            resumeTitle={pendingResume.title}
+            onCancel={() => setPendingDeleteId(null)}
+            onConfirm={confirmDelete}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -152,8 +250,20 @@ function DuplicateResumeDialog({ defaultTitle, onCancel, onConfirm, isSubmitting
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
-      <form
+      <motion.div
+        variants={fadeOnly}
+        initial="hidden"
+        animate="show"
+        exit="exit"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        onClick={onCancel}
+        aria-hidden="true"
+      />
+      <motion.form
+        variants={fadeScale}
+        initial="hidden"
+        animate="show"
+        exit="exit"
         onSubmit={handleSubmit}
         role="dialog"
         aria-modal="true"
@@ -161,7 +271,7 @@ function DuplicateResumeDialog({ defaultTitle, onCancel, onConfirm, isSubmitting
         className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-xl p-5"
       >
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-full bg-soft-indigo flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-full bg-soft-primary flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[18px] text-primary">content_copy</span>
           </div>
           <div>
@@ -196,7 +306,7 @@ function DuplicateResumeDialog({ defaultTitle, onCancel, onConfirm, isSubmitting
             {isSubmitting ? 'Duplicating…' : 'Duplicate'}
           </Button>
         </div>
-      </form>
+      </motion.form>
     </div>
   );
 }
@@ -209,8 +319,20 @@ function DuplicateResumeDialog({ defaultTitle, onCancel, onConfirm, isSubmitting
 function DeleteConfirmDialog({ resumeTitle, onCancel, onConfirm }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
-      <div
+      <motion.div
+        variants={fadeOnly}
+        initial="hidden"
+        animate="show"
+        exit="exit"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        onClick={onCancel}
+        aria-hidden="true"
+      />
+      <motion.div
+        variants={fadeScale}
+        initial="hidden"
+        animate="show"
+        exit="exit"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="delete-resume-title"
@@ -237,7 +359,7 @@ function DeleteConfirmDialog({ resumeTitle, onCancel, onConfirm }) {
             Delete
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

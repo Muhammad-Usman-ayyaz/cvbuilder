@@ -125,6 +125,7 @@ export default function PersonalInfoForm({ value, onChange }) {
                 rows={4}
                 maxLength={500}
                 helpText="2–4 sentences. This is usually the first thing a recruiter reads."
+                enableDictation
             />
         </div>
     );

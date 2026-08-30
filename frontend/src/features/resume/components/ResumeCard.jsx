@@ -1,28 +1,46 @@
+import { motion } from 'framer-motion';
 import Badge from '../../../components/common/Badge';
 import { formatUpdatedAt } from '../utils/resumeModel';
 import { getTemplateMeta } from '../utils/templateMeta';
 import ResumeCanvas from './studio/ResumeCanvas';
 import { useFitScale } from '../hooks/useFitScale';
+import { fadeSlideUp, cardHover } from '../../../lib/motion';
 
 const A4_WIDTH = 794; // must match ResumeCanvas's A4_WIDTH
 
+// Same thresholds AtsResults.jsx uses for its score gauges, so a resume's
+// badge here always agrees with how that same score would be colored on
+// the ATS Checker's own results page.
+function atsScoreVariant(score) {
+    if (score >= 75) return 'success';
+    if (score >= 45) return 'warning';
+    return 'error';
+}
+
 /**
  * A single resume's card in the MyResumesPage grid. Shows title, template
- * badge, last-updated label, and inline actions (open/duplicate/delete).
+ * badge, last-updated label, an optional latest-ATS-score badge, and inline
+ * actions (open/duplicate/delete).
  *
  * @param {{
  *   resume: import('../utils/resumeModel').ResumeDocument,
+ *   atsScore?: number,
  *   onOpen: (id: string) => void,
  *   onDuplicate: (id: string) => void,
  *   onDelete: (id: string) => void,
  * }} props
  */
-export default function ResumeCard({ resume, onOpen, onDuplicate, onDelete }) {
+export default function ResumeCard({ resume, atsScore, onOpen, onDuplicate, onDelete }) {
     const templateMeta = getTemplateMeta(resume.templateId);
     const [previewRef, previewScale] = useFitScale(A4_WIDTH);
 
     return (
-        <div className="group border border-border rounded-xl bg-card overflow-hidden hover:border-primary/40 hover:shadow-md transition-all">
+        <motion.div
+            layout
+            variants={fadeSlideUp}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2, ease: 'easeIn' } }}
+            whileHover={cardHover}
+            className="group border border-border rounded-xl bg-card overflow-hidden hover:border-primary/40 hover:shadow-md transition-all">
             {/* Live preview strip — a true miniature of the resume itself,
                 rendered via ResumeCanvas and scaled to exactly fill this
                 card's width so it reads like a thumbnail image. */}
@@ -52,10 +70,16 @@ export default function ResumeCard({ resume, onOpen, onDuplicate, onDelete }) {
                     </h3>
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                     {templateMeta && (
                         <Badge variant="primary" size="sm">
                             {templateMeta.name}
+                        </Badge>
+                    )}
+                    {typeof atsScore === 'number' && (
+                        <Badge variant={atsScoreVariant(atsScore)} size="sm" title="Latest ATS score">
+                            <span className="material-symbols-outlined text-[12px] mr-0.5">fact_check</span>
+                            {atsScore}%
                         </Badge>
                     )}
                     <span className="text-xs text-text-secondary">{formatUpdatedAt(resume.updatedAt)}</span>
@@ -65,7 +89,7 @@ export default function ResumeCard({ resume, onOpen, onDuplicate, onDelete }) {
                     <button
                         type="button"
                         onClick={() => onOpen(resume.id)}
-                        className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-xs font-medium text-text-secondary hover:text-primary hover:bg-soft-indigo transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-xs font-medium text-text-secondary hover:text-primary hover:bg-soft-primary transition-colors"
                     >
                         <span className="material-symbols-outlined text-[16px]">edit</span>
                         Edit
@@ -74,7 +98,7 @@ export default function ResumeCard({ resume, onOpen, onDuplicate, onDelete }) {
                         type="button"
                         onClick={() => onDuplicate(resume.id)}
                         aria-label="Duplicate resume"
-                        className="p-1.5 rounded-md text-text-secondary hover:text-primary hover:bg-soft-indigo transition-colors"
+                        className="p-1.5 rounded-md text-text-secondary hover:text-primary hover:bg-soft-primary transition-colors"
                     >
                         <span className="material-symbols-outlined text-[16px]">content_copy</span>
                     </button>
@@ -88,6 +112,6 @@ export default function ResumeCard({ resume, onOpen, onDuplicate, onDelete }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 }

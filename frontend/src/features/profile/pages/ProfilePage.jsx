@@ -3,10 +3,14 @@ import { useProfile } from '../../../context/ProfileContext';
 import Card from '../../../components/common/Card';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
+import PageHeader from '../../../components/layout/PageHeader';
+import EducationForm from '../../resume/components/editor/EducationForm';
+import ExperienceForm from '../../resume/components/editor/ExperienceForm';
+import SkillsForm from '../../resume/components/editor/SkillsForm';
 
 export default function ProfilePage() {
   const { profile, updateProfile, isLoading, completeness } = useProfile();
-  
+
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
     professionalTitle: '',
@@ -18,6 +22,10 @@ export default function ProfilePage() {
     githubUrl: '',
     portfolioUrl: '',
   });
+
+  const [education, setEducation] = useState([]);
+  const [experience, setExperience] = useState([]);
+  const [skills, setSkills] = useState([]);
 
   useEffect(() => {
     if (profile) {
@@ -32,10 +40,16 @@ export default function ProfilePage() {
         githubUrl: profile.github_url || '',
         portfolioUrl: profile.portfolio_url || '',
       });
+      setEducation(Array.isArray(profile.education) ? profile.education : []);
+      setExperience(Array.isArray(profile.experience) ? profile.experience : []);
+      setSkills(Array.isArray(profile.skills) ? profile.skills : []);
     }
   }, [profile]);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingEducation, setIsSavingEducation] = useState(false);
+  const [isSavingExperience, setIsSavingExperience] = useState(false);
+  const [isSavingSkills, setIsSavingSkills] = useState(false);
 
   const handlePersonalChange = (e) => {
     setPersonalInfo({ ...personalInfo, [e.target.name]: e.target.value });
@@ -57,6 +71,24 @@ export default function ProfilePage() {
     setIsSaving(false);
   };
 
+  const saveEducation = async () => {
+    setIsSavingEducation(true);
+    await updateProfile({ education });
+    setIsSavingEducation(false);
+  };
+
+  const saveExperience = async () => {
+    setIsSavingExperience(true);
+    await updateProfile({ experience });
+    setIsSavingExperience(false);
+  };
+
+  const saveSkills = async () => {
+    setIsSavingSkills(true);
+    await updateProfile({ skills });
+    setIsSavingSkills(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -68,20 +100,18 @@ export default function ProfilePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500">
       
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-text-primary">Master Profile</h1>
-          <p className="text-text-secondary mt-1">
-            Build your profile once. Generate unlimited tailored resumes.
-          </p>
-        </div>
-        <div className="text-right">
-          <div className="text-sm font-semibold text-primary mb-1">Profile Completeness</div>
-          <div className="w-48 h-2.5 bg-bg-main rounded-full overflow-hidden border border-border-light">
-            <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${completeness}%` }} />
+      <PageHeader
+        title="Master Profile"
+        description="Build your profile once. Generate unlimited tailored resumes."
+        actions={
+          <div className="text-right">
+            <div className="text-sm font-semibold text-primary mb-1">Profile Completeness</div>
+            <div className="w-48 h-2.5 bg-bg-main rounded-full overflow-hidden border border-border">
+              <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${completeness}%` }} />
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <Card className="p-6">
         <h2 className="text-xl font-bold text-text-primary mb-5 flex items-center">
@@ -110,27 +140,48 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {/* Placeholders for future sections */}
-      <Card className="p-6 opacity-60">
-        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center">
+      <Card className="p-6">
+        <h2 className="text-xl font-bold text-text-primary mb-5 flex items-center">
           <span className="material-symbols-outlined mr-2 text-primary">school</span>
-          Education (Coming soon)
+          Education
         </h2>
+        <EducationForm value={education} onChange={setEducation} />
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" onClick={saveEducation} isLoading={isSavingEducation}>
+            Save Changes
+          </Button>
+        </div>
       </Card>
 
-      <Card className="p-6 opacity-60">
-        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center">
+      <Card className="p-6">
+        <h2 className="text-xl font-bold text-text-primary mb-5 flex items-center">
           <span className="material-symbols-outlined mr-2 text-primary">work</span>
-          Experience (Coming soon)
+          Experience
         </h2>
+        <ExperienceForm value={experience} onChange={setExperience} />
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" onClick={saveExperience} isLoading={isSavingExperience}>
+            Save Changes
+          </Button>
+        </div>
       </Card>
-      
-      <Card className="p-6 opacity-60">
-        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center">
-          <span className="material-symbols-outlined mr-2 text-primary">lightbulb</span>
-          Skills (Coming soon)
+
+      <Card className="p-6">
+        <h2 className="text-xl font-bold text-text-primary mb-5 flex items-center">
+          <span className="material-symbols-outlined mr-2 text-primary">star</span>
+          Skills
         </h2>
+        <SkillsForm value={skills} onChange={setSkills} />
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" onClick={saveSkills} isLoading={isSavingSkills}>
+            Save Changes
+          </Button>
+        </div>
       </Card>
+
+      <p className="text-center text-sm text-text-secondary py-2">
+        More sections (Projects, Certifications, Achievements, Languages) coming soon.
+      </p>
     </div>
   );
 }

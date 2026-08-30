@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import ResumeCanvas from '../../resume/components/studio/ResumeCanvas';
 import { useFitScale } from '../../resume/hooks/useFitScale';
 import { formatUpdatedAt } from '../../resume/utils/resumeModel';
+import { fadeSlideUp, cardHover, cardTap } from '../../../lib/motion';
 
 const A4_WIDTH = 794; // must match ResumeCanvas's A4_WIDTH
 
@@ -18,9 +20,12 @@ export default function RecentResumeThumb({ resume }) {
     const [previewRef, previewScale] = useFitScale(A4_WIDTH);
 
     return (
-        <button
+        <motion.button
             type="button"
             onClick={() => navigate(`/resume-studio/${resume.id}`)}
+            variants={fadeSlideUp}
+            whileHover={cardHover}
+            whileTap={cardTap}
             className="group text-left rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:border-[var(--color-primary)]/40 hover:shadow-md transition-all"
         >
             <div className="w-full aspect-[794/1123] bg-[var(--color-bg-main)] relative overflow-hidden">
@@ -43,6 +48,6 @@ export default function RecentResumeThumb({ resume }) {
                     {formatUpdatedAt(resume.updatedAt)}
                 </p>
             </div>
-        </button>
+        </motion.button>
     );
 }

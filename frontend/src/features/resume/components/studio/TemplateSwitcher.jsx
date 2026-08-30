@@ -72,7 +72,7 @@ export default function TemplateSwitcher({ value, onChange, onToggle }) {
                                 <div
                                     key={template.id}
                                     className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
-                                        isActive ? 'bg-soft-indigo' : 'hover:bg-bg-main'
+                                        isActive ? 'bg-soft-primary' : 'hover:bg-bg-main'
                                     }`}
                                     onClick={() => {
                                         onChange(template.id);

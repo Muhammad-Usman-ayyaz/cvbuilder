@@ -13,7 +13,7 @@ export default function Badge({
     warning: 'bg-amber-50 text-warning border border-amber-200',
     error: 'bg-red-50 text-error border border-red-200',
     info: 'bg-blue-50 text-blue-600 border border-blue-200',
-    primary: 'bg-soft-indigo text-primary border border-indigo-200',
+    primary: 'bg-soft-primary text-primary border border-primary/20',
     neutral: 'bg-slate-50 text-text-secondary border border-border',
   };
 

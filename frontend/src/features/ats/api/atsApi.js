@@ -21,3 +21,12 @@ export async function getAtsHistoryItem(id) {
         method: 'GET',
     });
 }
+
+/**
+ * @returns {Promise<{ available: boolean }>}
+ */
+export async function getAtsServiceStatus() {
+    return fetchApi('/ats/status', {
+        method: 'GET',
+    });
+}

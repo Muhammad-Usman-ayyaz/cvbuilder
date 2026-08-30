@@ -90,7 +90,7 @@ export const StudioHeader = ({
                 {onToggleTemplates && (
                     <button
                         onClick={onToggleTemplates}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-primary bg-bg-main hover:bg-soft-indigo border border-border rounded-lg transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-primary bg-bg-main hover:bg-soft-primary border border-border rounded-lg transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-lg">dashboard</span>
                         <span className="hidden md:inline">Templates</span>
@@ -101,7 +101,7 @@ export const StudioHeader = ({
                 {onToggleColors && (
                     <button
                         onClick={onToggleColors}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-primary bg-bg-main hover:bg-soft-indigo border border-border rounded-lg transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-primary bg-bg-main hover:bg-soft-primary border border-border rounded-lg transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-lg">palette</span>
                         <span className="hidden md:inline">Theme</span>

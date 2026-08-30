@@ -32,15 +32,45 @@ export async function analyzeResume(resumeContent, jobDescription) {
             signal: controller.signal,
         });
     } catch (err) {
-        // Covers both "service unreachable" and the abort-on-timeout case.
-        throw new Error('ATS analysis is temporarily unavailable.');
+        // Covers both "service unreachable" (process not running/refused)
+        // and the abort-on-timeout case — the request never got a response
+        // at all, as opposed to the service being up but erroring below.
+        throw serviceUnavailableError();
     } finally {
         clearTimeout(timeout);
     }
 
     if (!response.ok) {
-        throw new Error('ATS analysis is temporarily unavailable.');
+        // The Python process IS reachable here — it returned an error (e.g.
+        // the Gemini call itself failed). Distinct from "service is down".
+        throw new Error('ATS analysis failed. Please try again.');
     }
 
     return response.json();
+}
+
+function serviceUnavailableError() {
+    const err = new Error(
+        'The ATS analysis service is currently unavailable. Your check did not run — please try again shortly.'
+    );
+    err.code = 'ATS_SERVICE_UNAVAILABLE';
+    return err;
+}
+
+/**
+ * Quick reachability check against the microservice's health route — used
+ * by the Node backend's own startup log and by GET /api/ats/status so
+ * "is it actually running" doesn't require digging through terminals.
+ */
+export async function checkAtsServiceHealth() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    try {
+        const response = await fetch(ATS_SERVICE_URL, { signal: controller.signal });
+        return response.ok;
+    } catch {
+        return false;
+    } finally {
+        clearTimeout(timeout);
+    }
 }

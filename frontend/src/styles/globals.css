@@ -2,12 +2,12 @@
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --color-primary: #4F46E5;
-    --color-primary-hover: #4338CA;
+    --color-primary: #2C5282;
+    --color-primary-hover: #1A365D;
     --color-secondary: #14B8A6;
     --color-bg-main: #F8FAFC;
     --color-card: #FFFFFF;
-    --color-soft-indigo: #EEF2FF;
+    --color-soft-primary: #EAF0F6;
     --color-text-primary: #0F172A;
     --color-text-secondary: #64748B;
     --color-border: #E2E8F0;
@@ -24,7 +24,7 @@
 .dark {
     --color-bg-main: #0F172A;
     --color-card: #1E293B;
-    --color-soft-indigo: #1E1B4B;
+    --color-soft-primary: #1C2F45;
     --color-text-primary: #F8FAFC;
     --color-text-secondary: #94A3B8;
     --color-border: #334155;

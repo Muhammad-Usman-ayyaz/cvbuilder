@@ -125,6 +125,7 @@ export default function ExperienceForm({ value, onChange }) {
                         value={item.description}
                         onChange={(e) => updateItem(item.id, { description: e.target.value })}
                         rows={4}
+                        enableDictation
                     />
                 </ArrayItemShell>
             ))}

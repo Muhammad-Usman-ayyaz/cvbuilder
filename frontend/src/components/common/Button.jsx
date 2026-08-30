@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+import { buttonTap } from '../../lib/motion';
 
 export default function Button({
   children,
@@ -16,7 +18,7 @@ export default function Button({
   
   const variants = {
     primary: 'bg-primary text-white hover:bg-primary-hover focus:ring-primary',
-    secondary: 'bg-soft-indigo text-primary hover:bg-indigo-100 focus:ring-primary',
+    secondary: 'bg-soft-primary text-primary hover:bg-primary/15 focus:ring-primary',
     outline: 'border border-border text-text-primary bg-transparent hover:bg-bg-main focus:ring-primary',
     ghost: 'text-text-primary bg-transparent hover:bg-bg-main focus:ring-primary',
     danger: 'bg-error text-white hover:bg-red-700 focus:ring-error',
@@ -29,10 +31,12 @@ export default function Button({
   };
 
   return (
-    <button
+    <motion.button
       type={type}
       onClick={onClick}
       disabled={disabled || isLoading}
+      whileTap={disabled || isLoading ? undefined : buttonTap}
+      transition={{ duration: 0.12 }}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
@@ -45,6 +49,6 @@ export default function Button({
       {!isLoading && leftIcon && <span className="mr-2 flex items-center">{leftIcon}</span>}
       {children}
       {!isLoading && rightIcon && <span className="ml-2 flex items-center">{rightIcon}</span>}
-    </button>
+    </motion.button>
   );
 }

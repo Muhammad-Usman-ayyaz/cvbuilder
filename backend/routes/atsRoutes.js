@@ -9,5 +9,6 @@ router.use(requireAuth);
 router.post('/check', atsController.checkAts);
 router.get('/history', atsController.getHistory);
 router.get('/history/:id', atsController.getHistoryItem);
+router.get('/status', atsController.getStatus);
 
 export default router;

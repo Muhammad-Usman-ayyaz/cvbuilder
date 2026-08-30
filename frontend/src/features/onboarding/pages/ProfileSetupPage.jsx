@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useProfile } from '../../../context/ProfileContext';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
 import Card from '../../../components/common/Card';
+import { fadeSlideUp } from '../../../lib/motion';
 
 export default function ProfileSetupPage() {
   const { user } = useAuth();
@@ -34,7 +36,12 @@ export default function ProfileSetupPage() {
 
   return (
     <div className="min-h-screen bg-bg-main p-6 flex flex-col items-center justify-center">
-      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <motion.div
+        className="w-full max-w-md"
+        variants={fadeSlideUp}
+        initial="hidden"
+        animate="show"
+      >
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="material-symbols-outlined text-[32px] text-primary">person_add</span>
@@ -86,7 +93,7 @@ export default function ProfileSetupPage() {
             </div>
           </form>
         </Card>
-      </div>
+      </motion.div>
     </div>
   );
 }

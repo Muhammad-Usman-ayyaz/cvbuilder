@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
 import { TEMPLATES, THEME_COLORS } from '../utils/templateMeta';
+import { fadeScale, fadeOnly } from '../../../lib/motion';
 
 /**
  * Modal for creating a new resume — title, template choice, accent color.
@@ -42,8 +44,6 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
-    if (!isOpen) return null;
-
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!title.trim()) {
@@ -54,21 +54,31 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-                onClick={onClose}
-                aria-hidden="true"
-            />
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <motion.div
+                        variants={fadeOnly}
+                        initial="hidden"
+                        animate="show"
+                        exit="exit"
+                        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+                        onClick={onClose}
+                        aria-hidden="true"
+                    />
 
-            {/* Panel */}
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="create-resume-title"
-                className="relative w-full max-w-md bg-card border border-border rounded-xl shadow-xl p-5"
-            >
+                    {/* Panel */}
+                    <motion.div
+                        variants={fadeScale}
+                        initial="hidden"
+                        animate="show"
+                        exit="exit"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="create-resume-title"
+                        className="relative w-full max-w-md bg-card border border-border rounded-xl shadow-xl p-5"
+                    >
                 <div className="flex items-center justify-between mb-4">
                     <h2 id="create-resume-title" className="text-base font-semibold text-text-primary">
                         Create a new resume
@@ -109,7 +119,7 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
                                         onClick={() => setTemplateId(template.id)}
                                         aria-pressed={isActive}
                                         className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border text-center transition-colors ${isActive
-                                            ? 'border-primary bg-soft-indigo text-primary'
+                                            ? 'border-primary bg-soft-primary text-primary'
                                             : 'border-border text-text-secondary hover:border-text-secondary/40'
                                             }`}
                                     >
@@ -156,7 +166,9 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
 }

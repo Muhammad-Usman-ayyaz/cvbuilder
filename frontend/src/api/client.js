@@ -36,7 +36,9 @@ export async function fetchApi(endpoint, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error((data && data.error) || response.statusText || 'An error occurred');
+        const error = new Error((data && data.error) || response.statusText || 'An error occurred');
+        if (data && data.code) error.code = data.code;
+        throw error;
     }
 
     return data;

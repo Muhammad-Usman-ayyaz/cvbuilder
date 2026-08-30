@@ -56,7 +56,7 @@ export function getTemplateMeta(id) {
  * @type {{ label: string, value: string }[]}
  */
 export const THEME_COLORS = [
-    { label: 'Indigo', value: '#4F46E5' },
+    { label: 'Navy', value: '#2C5282' },
     { label: 'Sky', value: '#0EA5E9' },
     { label: 'Teal', value: '#0D9488' },
     { label: 'Emerald', value: '#059669' },

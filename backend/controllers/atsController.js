@@ -1,6 +1,6 @@
 import * as resumeService from '../services/resumeService.js';
 import * as atsHistoryService from '../services/atsHistoryService.js';
-import { analyzeResume } from '../services/atsService.js';
+import { analyzeResume, checkAtsServiceHealth } from '../services/atsService.js';
 
 const ATS_CHECK_LIMIT = parseInt(process.env.ATS_CHECK_LIMIT, 10) || 20;
 
@@ -31,38 +31,49 @@ export async function checkAts(req, res) {
         // History is supplementary — a save failure shouldn't break the
         // actual check the user is waiting on, so it's logged, not thrown.
         try {
-            console.log(`[TEMP DEBUG] checkAts: saving history for user=${req.user.id} resume=${resumeId}`);
-            const saved = await atsHistoryService.saveAtsCheck(req.supabase, {
+            await atsHistoryService.saveAtsCheck(req.supabase, {
                 userId: req.user.id,
                 resumeId,
                 jobDescription,
                 overallScore: result.overallScore,
                 resultJson: result,
             });
-            console.log(`[TEMP DEBUG] checkAts: saved ok, row id=${saved.id}`);
         } catch (saveError) {
-            console.error('[TEMP DEBUG] Failed to save ATS check history:', saveError);
+            console.error('Failed to save ATS check history:', saveError.message);
         }
 
         res.status(200).json(result);
     } catch (error) {
+        // The microservice-unreachable case gets its own status/code so the
+        // frontend can show a distinct "service is down" state instead of
+        // a generic error indistinguishable from e.g. bad input.
+        if (error.code === 'ATS_SERVICE_UNAVAILABLE') {
+            return res.status(503).json({ error: error.message, code: error.code });
+        }
         res.status(500).json({ error: error.message });
     }
 }
 
 export async function getHistory(req, res) {
     try {
-        console.log(`[TEMP DEBUG] getHistory: user=${req.user.id}`);
         const [history, count] = await Promise.all([
             atsHistoryService.getHistoryForUser(req.supabase, req.user.id),
             atsHistoryService.countChecksForUser(req.supabase, req.user.id),
         ]);
-        console.log(`[TEMP DEBUG] getHistory: user=${req.user.id} returned ${history.length} rows, count=${count}`);
         res.status(200).json({ history, count, limit: ATS_CHECK_LIMIT });
     } catch (error) {
-        console.error('[TEMP DEBUG] getHistory failed:', error);
         res.status(500).json({ error: error.message });
     }
+}
+
+/**
+ * Lets the frontend show "is the ATS service actually up" without anyone
+ * needing to check terminals — a lightweight passthrough of the same
+ * reachability check checkAts relies on.
+ */
+export async function getStatus(req, res) {
+    const available = await checkAtsServiceHealth();
+    res.status(200).json({ available });
 }
 
 export async function getHistoryItem(req, res) {

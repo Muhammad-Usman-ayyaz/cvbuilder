@@ -72,7 +72,7 @@ export default function EditorTabs({ content, onChange }) {
                                 isActive
                                     ? 'bg-primary text-white shadow-sm'
                                     : isCompleted
-                                        ? 'bg-soft-indigo text-primary border border-primary/20 hover:bg-primary/10'
+                                        ? 'bg-soft-primary text-primary border border-primary/20 hover:bg-primary/10'
                                         : 'bg-bg-main text-text-secondary hover:text-text-primary border border-border hover:bg-card'
                             }`}
                         >

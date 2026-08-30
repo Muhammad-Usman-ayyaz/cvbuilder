@@ -132,7 +132,7 @@ function SkillItemsEditor({ groupId, items, onChange }) {
                     {items.map((skill, index) => (
                         <span
                             key={`${skill}-${index}`}
-                            className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-soft-indigo text-primary text-xs font-medium"
+                            className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-soft-primary text-primary text-xs font-medium"
                         >
                             {skill}
                             <button
