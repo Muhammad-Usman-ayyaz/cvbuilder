@@ -10,7 +10,7 @@ export default function EmptyState({
   actionOnClick
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 border-2 border-dashed border-border rounded-2xl bg-surface-container-lowest text-center">
+    <div className="flex flex-col items-center justify-center py-16 px-4 border-2 border-dashed border-border rounded-2xl bg-bg-main text-center">
       <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
         <span className="material-symbols-outlined text-[32px] text-primary">
           {icon}
@@ -26,12 +26,12 @@ export default function EmptyState({
       {actionLabel && (
         actionHref ? (
           <Link to={actionHref}>
-            <Button variant="primary" icon="add">
+            <Button variant="primary" leftIcon={<span className="material-symbols-outlined text-[18px]">add</span>}>
               {actionLabel}
             </Button>
           </Link>
         ) : (
-          <Button variant="primary" icon="add" onClick={actionOnClick}>
+          <Button variant="primary" leftIcon={<span className="material-symbols-outlined text-[18px]">add</span>} onClick={actionOnClick}>
             {actionLabel}
           </Button>
         )

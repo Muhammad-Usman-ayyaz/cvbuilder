@@ -37,7 +37,6 @@ src/
 │   │
 │   └── layout/                 # Structural shell components
 │       ├── AppLayout.jsx       # The main dashboard wrapper (sidebar + navbar)
-│       ├── AuthLayout.jsx      # Split-screen wrapper for login/signup
 │       ├── Sidebar.jsx         # Left navigation menu
 │       ├── TopNavbar.jsx       # Top header with profile dropdown
 │       ├── ProtectedRoute.jsx  # Security wrapper for authenticated routes

@@ -107,6 +107,7 @@ export default function EducationForm({ value, onChange }) {
                         value={item.description}
                         onChange={(e) => updateItem(item.id, { description: e.target.value })}
                         rows={3}
+                        enableDictation
                     />
                 </ArrayItemShell>
             ))}

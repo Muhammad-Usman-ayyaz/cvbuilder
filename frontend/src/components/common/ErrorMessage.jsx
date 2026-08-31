@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+import { fadeSlideDown } from '../../lib/motion';
 
 export default function ErrorMessage({
   title = 'An error occurred',
@@ -9,7 +11,10 @@ export default function ErrorMessage({
   if (!message) return null;
 
   return (
-    <div
+    <motion.div
+      variants={fadeSlideDown}
+      initial="hidden"
+      animate="show"
       className={`bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3 text-sm text-error ${className}`}
       role="alert"
       {...props}
@@ -30,6 +35,6 @@ export default function ErrorMessage({
           <span className="material-symbols-outlined text-[18px]">close</span>
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }

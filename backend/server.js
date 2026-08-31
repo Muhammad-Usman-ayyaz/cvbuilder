@@ -7,6 +7,7 @@ import authRoutes from './routes/authRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import atsRoutes from './routes/atsRoutes.js';
+import { checkAtsServiceHealth } from './services/atsService.js';
 
 dotenv.config();
 
@@ -54,6 +55,17 @@ app.use('/api/ats', atsRoutes);
 const server = app.listen(PORT, () => {
     console.log(`🚀 Local Backend listening on http://localhost:${PORT}`);
     console.log(`🔒 CORS allowing frontend on ${FRONTEND_URL}`);
+
+    // Not a hard dependency check (the backend still starts fine without
+    // it) — just a visible startup signal so a down ATS microservice
+    // doesn't stay silently unnoticed until someone hits the feature.
+    checkAtsServiceHealth().then((available) => {
+        if (available) {
+            console.log('✅ ATS analysis service (Python) is reachable');
+        } else {
+            console.warn('⚠️  ATS analysis service (Python) is NOT reachable — ATS checks will fail until it is started (see ats-service/)');
+        }
+    });
 });
 
 server.on('error', (error) => {

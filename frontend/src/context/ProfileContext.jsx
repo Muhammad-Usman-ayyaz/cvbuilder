@@ -42,10 +42,12 @@ export function ProfileProvider({ children }) {
     };
   }, [user]);
 
+  // Weights sum to 100. Personal-info fields carry less weight than before
+  // (15 -> 10 each) to make room for Experience, which now has real UI on
+  // ProfilePage (education/experience/skills) alongside education/skills.
   const calculateCompleteness = (prof) => {
     if (!prof) return 0;
     let score = 0;
-    
     // Personal Details (30%)
     if (prof.full_name || prof.fullName) score += 10;
     if (prof.email) score += 5;

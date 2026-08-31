@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import TopNavbar from './TopNavbar';
 import Sidebar from './Sidebar';
 import SettingsModal from '../../features/settings/components/SettingsModal';
+import PageTransition from '../common/PageTransition';
 
 export default function AppLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -18,7 +19,9 @@ export default function AppLayout() {
         <TopNavbar onMenuClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
 
         <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-[var(--color-bg-main)]">
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </main>
       </div>
 

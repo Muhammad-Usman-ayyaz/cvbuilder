@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getResumeById } from '../api/resumeApi';
+import { fadeSlideDown } from '../../../lib/motion';
 import { useResumes } from '../hooks/useResumes';
 import Card from '../../../components/common/Card';
 import StudioHeader from '../components/studio/StudioHeader';
@@ -12,9 +14,21 @@ import { exportResumeAsPdf } from '../utils/exportPdf';
 
 const AUTOSAVE_DELAY_MS = 800;
 
+// Mirrors AtsResults.jsx's CHECK_SECTION_MAP tab ids — used only to render
+// the human-readable tab name in the "fix this" banner passed via router
+// state from the ATS Checker's "Fix in Studio" link.
+const TAB_LABELS = {
+    personal: 'Personal',
+    education: 'Education',
+    experience: 'Experience',
+    projects: 'Projects',
+    skills: 'Skills',
+};
+
 export default function ResumeStudioPage() {
     const { resumeId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { saveResume } = useResumes();
 
     const [resume, setResume] = useState(null);
@@ -23,6 +37,37 @@ export default function ResumeStudioPage() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isDesignOpen, setIsDesignOpen] = useState(false);
     const [mobileScale, setMobileScale] = useState(0.38); // Default fit
+
+    // Transient "fix this" guidance passed from the ATS Checker's "Fix in
+    // Studio" link (missing keywords / failed formatting checks for the
+    // resume just analyzed). Only present when arriving via that deep
+    // link — a normal visit to Studio has no router state, so this stays
+    // null and the banner never renders. Not persisted anywhere.
+    const [atsFix, setAtsFix] = useState(() => location.state?.atsFix ?? null);
+
+    // Strip the router state immediately so a page refresh or browser
+    // back/forward doesn't resurrect the banner from history.state.
+    useEffect(() => {
+        if (location.state?.atsFix) {
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Once the resume has loaded and the Personal tab (the default tab)
+    // has rendered, scroll to and focus the Professional Summary field —
+    // the most natural place to weave in missing keywords.
+    useEffect(() => {
+        if (!atsFix || !resume) return;
+        const timeoutId = setTimeout(() => {
+            const el = document.getElementById('personal-summary');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus({ preventScroll: true });
+            }
+        }, 300);
+        return () => clearTimeout(timeoutId);
+    }, [atsFix, resume]);
 
     useEffect(() => {
         if (!isDesignOpen) {
@@ -103,7 +148,12 @@ export default function ResumeStudioPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-bg-main overflow-hidden">
+        <motion.div
+            className="flex flex-col h-screen bg-bg-main overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.25 }}
+        >
             <style>{`
                 @media print {
                     body * {
@@ -141,6 +191,51 @@ export default function ResumeStudioPage() {
                     saveStatus={saveStatus}
                     resume={resume}
                 />
+                <AnimatePresence>
+                    {atsFix && (atsFix.missingKeywords?.length > 0 || atsFix.failedChecks?.length > 0) && (
+                        <motion.div
+                            variants={fadeSlideDown}
+                            initial="hidden"
+                            animate="show"
+                            exit="exit"
+                            className="bg-soft-primary border-b border-primary/20 px-4 py-3 flex items-start gap-3"
+                        >
+                            <span className="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">
+                                lightbulb
+                            </span>
+                            <div className="flex-1 min-w-0 text-sm space-y-1.5">
+                                {atsFix.missingKeywords?.length > 0 && (
+                                    <p className="text-text-primary">
+                                        <span className="font-semibold">Missing from your resume:</span>{' '}
+                                        {atsFix.missingKeywords.join(', ')} — consider weaving these into your Professional
+                                        Summary or the relevant section below.
+                                    </p>
+                                )}
+                                {atsFix.failedChecks?.length > 0 && (
+                                    <ul className="space-y-1">
+                                        {atsFix.failedChecks.map((check) => (
+                                            <li key={check.label} className="text-xs text-text-secondary">
+                                                <span className="font-semibold text-text-primary">
+                                                    {check.label}
+                                                    {check.section && ` (${TAB_LABELS[check.section]} tab)`}:
+                                                </span>{' '}
+                                                {check.note}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setAtsFix(null)}
+                                aria-label="Dismiss"
+                                className="p-1 rounded-full text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors shrink-0"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             <div className="flex flex-1 min-h-0 relative flex-col lg:flex-row">
@@ -215,6 +310,6 @@ export default function ResumeStudioPage() {
                     <ResumeCanvas resume={resume} scale={0.78} className="print:!scale-100 print:shadow-none" />
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 }

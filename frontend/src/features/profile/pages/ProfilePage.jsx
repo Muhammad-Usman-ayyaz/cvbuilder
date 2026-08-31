@@ -4,9 +4,13 @@ import Card from '../../../components/common/Card';
 import Input from '../../../components/common/Input';
 import TextArea from '../../../components/common/TextArea';
 import Button from '../../../components/common/Button';
+import PageHeader from '../../../components/layout/PageHeader';
+import EducationForm from '../../resume/components/editor/EducationForm';
+import ExperienceForm from '../../resume/components/editor/ExperienceForm';
+import SkillsForm from '../../resume/components/editor/SkillsForm';
 
 export default function ProfilePage() {
-  const { profile, updateProfile, isLoading, completeness, missingItems } = useProfile();
+  const { profile, updateProfile, isLoading, completeness, missingItems = [] } = useProfile();
   const [activeTab, setActiveTab] = useState('personal');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -45,7 +49,6 @@ export default function ProfilePage() {
         portfolio: profile.portfolio_url || profile.portfolioUrl || profile.portfolio || '',
         summary: profile.summary || '',
       });
-
       setExperience(Array.isArray(profile.experience) ? profile.experience : []);
       setEducation(Array.isArray(profile.education) ? profile.education : []);
       setProjects(Array.isArray(profile.projects) ? profile.projects : []);
@@ -59,7 +62,6 @@ export default function ProfilePage() {
       }
     }
   }, [profile]);
-
   const handlePersonalChange = (e) => {
     setPersonalInfo(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -192,6 +194,24 @@ export default function ProfilePage() {
     }
   };
 
+  const saveEducation = async () => {
+    setIsSavingEducation(true);
+    await updateProfile({ education });
+    setIsSavingEducation(false);
+  };
+
+  const saveExperience = async () => {
+    setIsSavingExperience(true);
+    await updateProfile({ experience });
+    setIsSavingExperience(false);
+  };
+
+  const saveSkills = async () => {
+    setIsSavingSkills(true);
+    await updateProfile({ skills });
+    setIsSavingSkills(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -211,22 +231,22 @@ export default function ProfilePage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-xl bg-[var(--color-card)] border border-[var(--color-border)] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-xl bg-card border border-border shadow-xs">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Master Profile</h1>
-          <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+          <h1 className="text-2xl font-bold text-text-primary">Master Profile</h1>
+          <p className="text-xs text-text-secondary mt-1">
             Fill your common info once. Every new resume will auto-fill with this data!
           </p>
         </div>
 
-        <div className="flex items-center gap-4 bg-[var(--color-bg-main)] p-3 rounded-lg border border-[var(--color-border)] shrink-0">
+        <div className="flex items-center gap-4 bg-bg-main p-3 rounded-lg border border-border shrink-0">
           <div className="text-right">
-            <div className="text-xs font-bold text-[var(--color-text-primary)]">
-              Strength: <span className="text-[var(--color-primary)] font-extrabold">{completeness}%</span>
+            <div className="text-xs font-bold text-text-primary">
+              Strength: <span className="text-primary font-extrabold">{completeness}%</span>
             </div>
-            <div className="w-36 h-2 bg-[var(--color-border)] rounded-full overflow-hidden mt-1">
+            <div className="w-36 h-2 bg-border rounded-full overflow-hidden mt-1">
               <div
-                className="h-full bg-[var(--color-primary)] rounded-full transition-all duration-500"
+                className="h-full bg-primary rounded-full transition-all duration-500"
                 style={{ width: `${completeness}%` }}
               />
             </div>
@@ -281,8 +301,8 @@ export default function ProfilePage() {
 
       {/* Tab 1: Personal Information */}
       {activeTab === 'personal' && (
-        <Card className="p-6 space-y-5 rounded-xl border-[var(--color-border)]">
-          <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Personal & Contact Details</h2>
+        <Card className="p-6 space-y-5 rounded-xl border border-border">
+          <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Personal & Contact Details</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Full Name" name="fullName" value={personalInfo.fullName} onChange={handlePersonalChange} placeholder="John Doe" />
             <Input label="Professional Title" name="professionalTitle" value={personalInfo.professionalTitle} onChange={handlePersonalChange} placeholder="Software Engineer" />
@@ -304,25 +324,25 @@ export default function ProfilePage() {
 
       {/* Tab 2: Work Experience */}
       {activeTab === 'experience' && (
-        <Card className="p-6 space-y-6 rounded-xl border-[var(--color-border)]">
+        <Card className="p-6 space-y-6 rounded-xl border border-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Work Experience</h2>
+            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Work Experience</h2>
             <Button variant="secondary" onClick={addExperience} className="text-xs">
               + Add Position
             </Button>
           </div>
 
           {experience.length === 0 ? (
-            <div className="text-center py-8 text-xs text-[var(--color-text-secondary)] border border-dashed border-[var(--color-border)] rounded-lg">
+            <div className="text-center py-8 text-xs text-text-secondary border border-dashed border-border rounded-lg">
               No work experience added yet. Click "+ Add Position" to include your employment history.
             </div>
           ) : (
-            <div className="space-y-6 divide-y divide-[var(--color-border)]">
+            <div className="space-y-6 divide-y divide-border">
               {experience.map((item, idx) => (
                 <div key={item.id || idx} className="pt-4 first:pt-0 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[var(--color-primary)]">Position #{idx + 1}</span>
-                    <button onClick={() => removeExperienceItem(idx)} className="text-xs text-[var(--color-error)] hover:underline">
+                    <span className="text-xs font-bold text-primary">Position #{idx + 1}</span>
+                    <button onClick={() => removeExperienceItem(idx)} className="text-xs text-error hover:underline">
                       Remove
                     </button>
                   </div>
@@ -347,25 +367,25 @@ export default function ProfilePage() {
 
       {/* Tab 3: Education */}
       {activeTab === 'education' && (
-        <Card className="p-6 space-y-6 rounded-xl border-[var(--color-border)]">
+        <Card className="p-6 space-y-6 rounded-xl border border-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Education History</h2>
+            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Education History</h2>
             <Button variant="secondary" onClick={addEducation} className="text-xs">
               + Add Education
             </Button>
           </div>
 
           {education.length === 0 ? (
-            <div className="text-center py-8 text-xs text-[var(--color-text-secondary)] border border-dashed border-[var(--color-border)] rounded-lg">
+            <div className="text-center py-8 text-xs text-text-secondary border border-dashed border-border rounded-lg">
               No education added yet. Click "+ Add Education" to add your degree or academic history.
             </div>
           ) : (
-            <div className="space-y-6 divide-y divide-[var(--color-border)]">
+            <div className="space-y-6 divide-y divide-border">
               {education.map((item, idx) => (
                 <div key={item.id || idx} className="pt-4 first:pt-0 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[var(--color-primary)]">Education #{idx + 1}</span>
-                    <button onClick={() => removeEducationItem(idx)} className="text-xs text-[var(--color-error)] hover:underline">
+                    <span className="text-xs font-bold text-primary">Education #{idx + 1}</span>
+                    <button onClick={() => removeEducationItem(idx)} className="text-xs text-error hover:underline">
                       Remove
                     </button>
                   </div>
@@ -387,8 +407,8 @@ export default function ProfilePage() {
 
       {/* Tab 4: Skills */}
       {activeTab === 'skills' && (
-        <Card className="p-6 space-y-5 rounded-xl border-[var(--color-border)]">
-          <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Skills & Competencies</h2>
+        <Card className="p-6 space-y-5 rounded-xl border border-border">
+          <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Skills & Competencies</h2>
 
           <form onSubmit={handleAddSkill} className="flex gap-2">
             <input
@@ -396,7 +416,7 @@ export default function ProfilePage() {
               value={newSkill}
               onChange={(e) => setNewSkill(e.target.value)}
               placeholder="e.g. React, TypeScript, Node.js, Project Management"
-              className="flex-1 rounded-lg border border-[var(--color-border)] px-3.5 py-2 text-xs bg-[var(--color-card)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+              className="flex-1 rounded-lg border border-border px-3.5 py-2 text-xs bg-card text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
             <Button type="submit" variant="primary" className="text-xs shrink-0">
               Add Skill
@@ -404,7 +424,7 @@ export default function ProfilePage() {
           </form>
 
           {skills.length === 0 ? (
-            <div className="text-center py-8 text-xs text-[var(--color-text-secondary)] border border-dashed border-[var(--color-border)] rounded-lg">
+            <div className="text-center py-8 text-xs text-text-secondary border border-dashed border-border rounded-lg">
               No skills added yet. Type a skill above and click "Add Skill".
             </div>
           ) : (
@@ -412,7 +432,7 @@ export default function ProfilePage() {
               {skills.map((skill, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20"
                 >
                   {skill}
                   <button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-500 font-bold">
@@ -427,25 +447,25 @@ export default function ProfilePage() {
 
       {/* Tab 5: Projects & Links */}
       {activeTab === 'projects' && (
-        <Card className="p-6 space-y-6 rounded-xl border-[var(--color-border)]">
+        <Card className="p-6 space-y-6 rounded-xl border border-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">Projects & Portfolio</h2>
+            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Projects & Portfolio</h2>
             <Button variant="secondary" onClick={addProject} className="text-xs">
               + Add Project
             </Button>
           </div>
 
           {projects.length === 0 ? (
-            <div className="text-center py-8 text-xs text-[var(--color-text-secondary)] border border-dashed border-[var(--color-border)] rounded-lg">
+            <div className="text-center py-8 text-xs text-text-secondary border border-dashed border-border rounded-lg">
               No projects added yet. Click "+ Add Project" to highlight your key projects.
             </div>
           ) : (
-            <div className="space-y-6 divide-y divide-[var(--color-border)]">
+            <div className="space-y-6 divide-y divide-border">
               {projects.map((item, idx) => (
                 <div key={item.id || idx} className="pt-4 first:pt-0 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[var(--color-primary)]">Project #{idx + 1}</span>
-                    <button onClick={() => removeProjectItem(idx)} className="text-xs text-[var(--color-error)] hover:underline">
+                    <span className="text-xs font-bold text-primary">Project #{idx + 1}</span>
+                    <button onClick={() => removeProjectItem(idx)} className="text-xs text-error hover:underline">
                       Remove
                     </button>
                   </div>

@@ -1,16 +1,23 @@
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { fadeSlideUp, cardHover, cardTap } from '../../../lib/motion';
 
-export default function QuickActionCard({ 
-  title, 
-  description, 
-  icon, 
-  href, 
-  colorClass = 'text-primary bg-primary/10' 
+const MotionLink = motion.create(Link);
+
+export default function QuickActionCard({
+  title,
+  description,
+  icon,
+  href,
+  colorClass = 'text-primary bg-primary/10'
 }) {
   return (
-    <Link 
+    <MotionLink
       to={href}
-      className="group block p-6 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-xs hover:shadow-md hover:border-[var(--color-primary)]/30 transition-all duration-200"
+      variants={fadeSlideUp}
+      whileHover={cardHover}
+      whileTap={cardTap}
+      className="group block p-6 bg-card border border-border rounded-xl shadow-xs hover:shadow-md hover:border-primary/30 transition-all duration-200"
     >
       {icon && (
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${colorClass}`}>
@@ -25,6 +32,6 @@ export default function QuickActionCard({
       <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
         {description}
       </p>
-    </Link>
+    </MotionLink>
   );
 }
