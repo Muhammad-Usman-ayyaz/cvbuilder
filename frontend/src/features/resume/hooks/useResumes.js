@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as resumeApi from '../api/resumeApi';
 import { createEmptyResume, duplicateResume as duplicateResumeModel } from '../utils/resumeModel';
 import { useAuth } from '../../auth/context/AuthContext';
+import { useProfile } from '../../../context/ProfileContext';
 
 /**
  * CRUD hook for resumes, backed by resumeStorage (now Supabase, was
@@ -36,6 +37,7 @@ import { useAuth } from '../../auth/context/AuthContext';
  */
 export function useResumes() {
     const { user } = useAuth();
+    const { profile } = useProfile();
     const [resumes, setResumes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -81,12 +83,12 @@ export function useResumes() {
      */
     const createResume = useCallback(
         async (params) => {
-            const resume = createEmptyResume(params);
+            const resume = createEmptyResume({ ...params, profile: params?.profile || profile });
             const saved = await resumeApi.upsertResume(resume);
             setResumes((prev) => [saved, ...prev]);
             return saved;
         },
-        [user]
+        [user, profile]
     );
 
     /**

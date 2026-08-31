@@ -10,6 +10,7 @@ export default function Sidebar({ isOpen, onClose }) {
     {
       items: [
         { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', badge: null },
+        { path: '/profile', label: 'Master Profile', icon: 'person', badge: null },
         { path: '/my-resumes', label: 'My Resumes', icon: 'description', badge: null },
       ]
     },

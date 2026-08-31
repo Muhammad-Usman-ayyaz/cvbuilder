@@ -218,14 +218,87 @@ export function createEmptyContent() {
  * @param {{ title: string, templateId?: 'classic'|'modern'|'minimal', themeColor?: string }} params
  * @returns {ResumeDocument}
  */
-export function createEmptyResume({ title, templateId = 'classic', themeColor = '#4F46E5' }) {
+export function createEmptyResume({ title, templateId = 'classic', themeColor = '#4F46E5', profile = null }) {
+    const emptyContent = createEmptyContent();
+
+    if (profile) {
+        // Pre-fill Personal Info from Master Profile
+        emptyContent.personal = {
+            fullName: profile.full_name || profile.fullName || '',
+            email: profile.email || '',
+            phone: profile.phone || '',
+            location: profile.location || [profile.city, profile.country].filter(Boolean).join(', ') || '',
+            linkedin: profile.linkedin_url || profile.linkedinUrl || profile.linkedin || '',
+            github: profile.github_url || profile.githubUrl || profile.github || '',
+            portfolio: profile.portfolio_url || profile.portfolioUrl || profile.portfolio || '',
+            summary: profile.summary || '',
+        };
+
+        // Pre-fill Experience
+        if (Array.isArray(profile.experience) && profile.experience.length > 0) {
+            emptyContent.experience = profile.experience.map((item) => ({
+                id: generateId('exp'),
+                company: item.company || '',
+                role: item.role || item.title || '',
+                location: item.location || '',
+                startDate: item.startDate || item.start_date || '',
+                endDate: item.endDate || item.end_date || '',
+                current: Boolean(item.current),
+                description: item.description || '',
+            }));
+        }
+
+        // Pre-fill Education
+        if (Array.isArray(profile.education) && profile.education.length > 0) {
+            emptyContent.education = profile.education.map((item) => ({
+                id: generateId('edu'),
+                degree: item.degree || '',
+                school: item.school || item.institution || '',
+                location: item.location || '',
+                startDate: item.startDate || item.start_date || '',
+                endDate: item.endDate || item.end_date || '',
+                description: item.description || '',
+            }));
+        }
+
+        // Pre-fill Skills
+        if (Array.isArray(profile.skills) && profile.skills.length > 0) {
+            if (typeof profile.skills[0] === 'string') {
+                emptyContent.skills = [
+                    {
+                        id: generateId('skill'),
+                        category: 'Technical Skills',
+                        items: profile.skills.filter(Boolean),
+                    },
+                ];
+            } else {
+                emptyContent.skills = profile.skills.map((grp) => ({
+                    id: generateId('skill'),
+                    category: grp.category || 'Skills',
+                    items: Array.isArray(grp.items) ? grp.items : [],
+                }));
+            }
+        }
+
+        // Pre-fill Projects
+        if (Array.isArray(profile.projects) && profile.projects.length > 0) {
+            emptyContent.projects = profile.projects.map((proj) => ({
+                id: generateId('proj'),
+                name: proj.name || proj.title || '',
+                techStack: proj.techStack || proj.tech_stack || '',
+                link: proj.link || proj.url || '',
+                description: proj.description || '',
+            }));
+        }
+    }
+
     return {
         id: generateUuid(),
         title: title?.trim() || 'Untitled Resume',
         templateId,
         themeColor,
         updatedAt: new Date().toISOString(),
-        content: createEmptyContent(),
+        content: emptyContent,
     };
 }
 
