@@ -87,14 +87,7 @@ export default function TopNavbar({ onMenuClick, title }) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Quick Action: Create Resume Button */}
-        <Link
-          to="/onboarding"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] shadow-xs hover:shadow-md hover:shadow-[var(--color-primary)]/25 hover:-translate-y-0.5 transition-all duration-200"
-        >
-          <span className="material-symbols-outlined text-[16px]">add</span>
-          <span>New Resume</span>
-        </Link>
+
 
         {/* Notifications Dropdown */}
         <div className="relative" ref={notificationRef}>
@@ -128,9 +121,8 @@ export default function TopNavbar({ onMenuClick, title }) {
                 {notifications.map((item) => (
                   <div
                     key={item.id}
-                    className={`p-3 text-xs flex items-start gap-3 hover:bg-[var(--color-bg-main)]/60 transition-colors ${
-                      item.unread ? 'bg-[var(--color-primary)]/5' : ''
-                    }`}
+                    className={`p-3 text-xs flex items-start gap-3 hover:bg-[var(--color-bg-main)]/60 transition-colors ${item.unread ? 'bg-[var(--color-primary)]/5' : ''
+                      }`}
                   >
                     <span className="material-symbols-outlined text-[18px] text-[var(--color-primary)] shrink-0 mt-0.5">
                       {item.icon || 'notifications'}
@@ -166,9 +158,8 @@ export default function TopNavbar({ onMenuClick, title }) {
               <span className="text-[10px] text-[var(--color-text-secondary)]">Free Account</span>
             </div>
             <span
-              className={`material-symbols-outlined text-[18px] text-[var(--color-text-secondary)] transition-transform duration-200 ${
-                isDropdownOpen ? 'rotate-180 text-[var(--color-primary)]' : ''
-              }`}
+              className={`material-symbols-outlined text-[18px] text-[var(--color-text-secondary)] transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-[var(--color-primary)]' : ''
+                }`}
             >
               keyboard_arrow_down
             </span>

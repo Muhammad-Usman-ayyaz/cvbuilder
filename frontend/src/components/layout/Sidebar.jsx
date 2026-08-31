@@ -8,7 +8,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const menuSections = [
     {
-      title: 'OVERVIEW',
       items: [
         { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', badge: null },
         { path: '/my-resumes', label: 'My Resumes', icon: 'description', badge: null },
