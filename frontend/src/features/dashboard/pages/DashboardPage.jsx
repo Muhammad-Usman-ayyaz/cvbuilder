@@ -99,7 +99,7 @@ export default function DashboardPage() {
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="aspect-[794/1123] rounded-xl bg-card border border-border animate-pulse" />
+                <div key={i} className="aspect-[794/1123] rounded-lg bg-card border border-border animate-pulse" />
               ))}
             </div>
           ) : recentResumes.length === 0 ? (
@@ -184,10 +184,7 @@ export default function DashboardPage() {
                     <motion.button
                       type="button"
                       onClick={item.onClick}
-                      whileHover={{ x: 2 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ duration: 0.12 }}
-                      className="w-full flex items-start gap-2.5 py-2 px-1.5 -mx-1.5 rounded-lg text-left hover:bg-bg-main transition-colors"
+                      className="w-full flex items-start gap-2.5 py-2 px-1.5 -mx-1.5 rounded-md text-left hover:bg-bg-main transition-colors"
                     >
                       <span className="material-symbols-outlined text-text-secondary text-[16px] mt-0.5 shrink-0">
                         {item.icon}

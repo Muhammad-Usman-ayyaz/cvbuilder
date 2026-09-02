@@ -77,7 +77,7 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="create-resume-title"
-                        className="relative w-full max-w-md bg-card border border-border rounded-xl shadow-xl p-5"
+                        className="relative w-full max-w-md bg-card border border-border rounded-lg shadow-lg p-5"
                     >
                 <div className="flex items-center justify-between mb-4">
                     <h2 id="create-resume-title" className="text-base font-semibold text-text-primary">
@@ -118,7 +118,7 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
                                         type="button"
                                         onClick={() => setTemplateId(template.id)}
                                         aria-pressed={isActive}
-                                        className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border text-center transition-colors ${isActive
+                                        className={`flex flex-col items-center gap-1 p-2.5 rounded-md border text-center transition-colors ${isActive
                                             ? 'border-primary bg-soft-primary text-primary'
                                             : 'border-border text-text-secondary hover:border-text-secondary/40'
                                             }`}
@@ -144,7 +144,7 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
                                         aria-label={color.label}
                                         aria-pressed={isActive}
                                         title={color.label}
-                                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${isActive ? 'ring-2 ring-offset-2 ring-primary scale-105' : 'hover:scale-105'
+                                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${isActive ? 'ring-2 ring-offset-2 ring-primary' : ''
                                             }`}
                                         style={{ backgroundColor: color.value }}
                                     >

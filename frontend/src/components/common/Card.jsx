@@ -12,7 +12,7 @@ export default function Card({
 }) {
   return (
     <div
-      className={`bg-card border border-border rounded-xl shadow-sm ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
+      className={`bg-card border border-border rounded-lg shadow-sm ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
       {...props}
     >
       {(title || subtitle || headerActions) && (

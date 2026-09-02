@@ -6,7 +6,7 @@ export default function Badge({
   className = '',
   ...props
 }) {
-  const baseStyles = 'inline-flex items-center font-medium rounded-full';
+  const baseStyles = 'inline-flex items-center font-medium rounded-md';
   
   const variants = {
     success: 'bg-green-50 text-success border border-green-200',

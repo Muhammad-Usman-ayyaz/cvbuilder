@@ -10,6 +10,7 @@ export default function TopNavbar({ onMenuClick, title }) {
     isNotificationsOpen,
     toggleNotifications,
     closeNotifications,
+    openCreateResume,
   } = useUI();
 
   const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function TopNavbar({ onMenuClick, title }) {
       <div className="flex items-center gap-3 sm:gap-4 min-w-0">
         <button
           onClick={onMenuClick}
-          className="lg:hidden text-text-secondary hover:text-primary p-2 rounded-xl hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20"
+          className="lg:hidden text-text-secondary hover:text-primary p-2 rounded-md hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20"
           aria-label="Open navigation menu"
         >
           <span className="material-symbols-outlined text-[22px]">menu</span>
@@ -88,20 +89,21 @@ export default function TopNavbar({ onMenuClick, title }) {
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Quick Action: Create Resume Button */}
-        <Link
-          to="/onboarding"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-primary to-primary-hover shadow-xs hover:shadow-md hover:shadow-primary/25 hover:-translate-y-0.5 transition-all duration-200"
+        <button
+          type="button"
+          onClick={openCreateResume}
+          className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold text-white bg-primary shadow-sm hover:bg-primary-hover transition-colors"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           <span>New Resume</span>
-        </Link>
+        </button>
 
 
         {/* Notifications Dropdown */}
         <div className="relative" ref={notificationRef}>
           <button
             onClick={toggleNotifications}
-            className="text-text-secondary hover:text-primary p-2 rounded-xl hover:bg-bg-main border border-transparent hover:border-border transition-all relative"
+            className="text-text-secondary hover:text-primary p-2 rounded-md hover:bg-bg-main border border-transparent hover:border-border transition-all relative"
             aria-label="Notifications"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
@@ -111,7 +113,7 @@ export default function TopNavbar({ onMenuClick, title }) {
           </button>
 
           {isNotificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-card border border-border shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-xl">
+            <div className="absolute right-0 mt-2 w-80 rounded-lg bg-card border border-border shadow-lg py-2 z-50">
               <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-text-primary">
@@ -155,9 +157,9 @@ export default function TopNavbar({ onMenuClick, title }) {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-2.5 p-1 sm:p-1.5 rounded-xl hover:bg-bg-main transition-all border border-transparent hover:border-border"
+            className="flex items-center gap-2.5 p-1 sm:p-1.5 rounded-md hover:bg-bg-main transition-all border border-transparent hover:border-border"
           >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary via-slate-500 to-secondary text-white flex items-center justify-center font-bold text-xs shadow-xs ring-2 ring-primary/20">
+            <div className="h-8 w-8 rounded-md bg-primary text-white flex items-center justify-center font-bold text-xs shadow-sm">
               {getInitials(user?.fullName)}
             </div>
             <div className="hidden md:flex flex-col text-left leading-tight">
@@ -176,7 +178,7 @@ export default function TopNavbar({ onMenuClick, title }) {
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-card border border-border shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute right-0 mt-2 w-60 rounded-lg bg-card border border-border shadow-lg py-2 z-50">
               <div className="px-4 py-3 border-b border-border mb-1 bg-bg-main/30">
                 <p className="text-sm font-bold text-text-primary truncate">
                   {user?.fullName || 'User'}
@@ -213,7 +215,7 @@ export default function TopNavbar({ onMenuClick, title }) {
               <div className="px-1.5">
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 text-xs font-medium rounded-xl text-error hover:bg-error/10 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3 py-2 text-xs font-medium rounded-md text-error hover:bg-error/10 flex items-center gap-2.5 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">logout</span>
                   Sign Out

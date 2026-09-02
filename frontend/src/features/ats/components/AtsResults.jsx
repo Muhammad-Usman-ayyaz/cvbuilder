@@ -88,8 +88,7 @@ function WarningBanner({ warnings }) {
     <motion.div
       variants={fadeSlideDown}
       initial="hidden"
-      animate="show"
-      className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex gap-3"
+      className="bg-warning/10 border border-warning/30 rounded-md p-4 flex gap-3"
     >
       <span className="material-symbols-outlined text-warning text-[20px] shrink-0">warning</span>
       <div className="space-y-1">

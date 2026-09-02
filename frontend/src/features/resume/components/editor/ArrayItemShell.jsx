@@ -34,8 +34,8 @@ export default function ArrayItemShell({
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
-        <div className="border border-border rounded-lg bg-card overflow-hidden">
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-bg-main/50">
+        <div className="border-b border-border last:border-b-0 overflow-hidden">
+            <div className="flex items-center gap-2 px-1 py-2.5 group">
                 <button
                     type="button"
                     onClick={() => setIsOpen((v) => !v)}
@@ -94,7 +94,7 @@ export default function ArrayItemShell({
                 </div>
             </div>
 
-            {isOpen && <div className="p-4 space-y-4 border-t border-border">{children}</div>}
+            {isOpen && <div className="p-2 pt-0 pb-4 space-y-4">{children}</div>}
         </div>
     );
 }

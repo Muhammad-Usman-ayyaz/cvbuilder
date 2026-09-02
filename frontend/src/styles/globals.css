@@ -16,8 +16,12 @@
     --color-error: #EF4444;
 
     --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-    --radius-lg: 12px;
-    --radius-xl: 14px;
+    
+    /* Professional UI Border Radius Scale */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
 }
 
 /* Dark mode variable overrides */

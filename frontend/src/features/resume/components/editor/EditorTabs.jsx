@@ -68,7 +68,7 @@ export default function EditorTabs({ content, onChange }) {
                                 setActiveIndex(index);
                                 scrollToTop();
                             }}
-                            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors rounded-full mr-2 ${
+                            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors rounded-md mr-2 ${
                                 isActive
                                     ? 'bg-primary text-white shadow-sm'
                                     : isCompleted
@@ -110,7 +110,7 @@ export default function EditorTabs({ content, onChange }) {
                     <button
                         type="button"
                         onClick={handlePrev}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-main transition-colors border border-border"
+                        className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-main transition-colors border border-border"
                     >
                         <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                         Previous: {TABS[activeIndex - 1].label}
@@ -123,7 +123,7 @@ export default function EditorTabs({ content, onChange }) {
                     <button
                         type="button"
                         onClick={handleNext}
-                        className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm ml-auto"
+                        className="flex items-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm ml-auto"
                     >
                         Next: {TABS[activeIndex + 1].label}
                         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -134,7 +134,7 @@ export default function EditorTabs({ content, onChange }) {
                         onClick={() => {
                             // User finished.
                         }}
-                        className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm ml-auto opacity-50 cursor-default"
+                        className="flex items-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm ml-auto opacity-50 cursor-default"
                         disabled
                     >
                         Finished

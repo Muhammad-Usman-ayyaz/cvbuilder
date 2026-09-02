@@ -166,7 +166,7 @@ export default function ATSCheckerPage() {
               exit={{ opacity: 0, transition: { duration: 0.15 } }}
               className="space-y-6"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 rounded-xl border border-border shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 rounded-lg border border-border shadow-sm">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-xl">fact_check</span>

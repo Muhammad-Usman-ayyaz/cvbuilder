@@ -21,7 +21,7 @@ export default function Select({
         <select
           id={id}
           required={required}
-          className={`block w-full appearance-none rounded-lg border px-3 py-2.5 bg-card text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm pr-10 ${
+          className={`block w-full appearance-none rounded-md border px-3 py-2 bg-card text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm pr-10 ${
             error ? 'border-error focus:ring-error/20 focus:border-error' : 'border-border'
           }`}
           {...props}

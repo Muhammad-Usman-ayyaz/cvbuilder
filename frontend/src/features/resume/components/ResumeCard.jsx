@@ -39,8 +39,7 @@ export default function ResumeCard({ resume, atsScore, onOpen, onDuplicate, onDe
             layout
             variants={fadeSlideUp}
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2, ease: 'easeIn' } }}
-            whileHover={cardHover}
-            className="group border border-border rounded-xl bg-card overflow-hidden hover:border-primary/40 hover:shadow-md transition-all">
+            className="group border border-border rounded-lg bg-card overflow-hidden hover:border-primary/40 hover:shadow-sm transition-all">
             {/* Live preview strip — a true miniature of the resume itself,
                 rendered via ResumeCanvas and scaled to exactly fill this
                 card's width so it reads like a thumbnail image. */}

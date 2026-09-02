@@ -283,7 +283,7 @@ export default function ResumeStudioPage() {
                         
                         {/* Mobile Canvas - Dynamic Scaling */}
                         <div 
-                            className="lg:hidden shrink-0 bg-bg-main border border-border rounded-xl mb-4 overflow-auto transition-all duration-300 relative z-0 print:hidden" 
+                            className="lg:hidden shrink-0 bg-bg-main border border-border rounded-lg mb-4 overflow-auto transition-all duration-300 relative z-0 print:hidden" 
                             style={{ height: !isDesignOpen ? '420px' : isDropdownOpen ? '180px' : '310px' }}
                         >
                             <div className="min-w-fit min-h-fit p-2 flex justify-center">
@@ -293,7 +293,7 @@ export default function ResumeStudioPage() {
                     </div>
 
                     {/* Scrollable bottom portion on mobile, normal flow on desktop */}
-                    <div className="flex-1 overflow-y-auto lg:overflow-visible min-h-0 bg-white rounded-xl shadow-sm border border-border lg:border-none lg:shadow-none lg:bg-transparent z-10" id="editor-scroll-container">
+                    <div className="flex-1 overflow-y-auto lg:overflow-visible min-h-0 bg-card rounded-lg shadow-sm border border-border lg:border-none lg:shadow-none lg:bg-transparent z-10" id="editor-scroll-container">
                         <Card noPadding className="border-none shadow-none lg:border-solid lg:shadow-sm">
                             <div className="p-4 lg:p-5">
                                 <EditorTabs

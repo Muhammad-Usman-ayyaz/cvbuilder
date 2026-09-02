@@ -24,9 +24,7 @@ export default function RecentResumeThumb({ resume }) {
             type="button"
             onClick={() => navigate(`/resume-studio/${resume.id}`)}
             variants={fadeSlideUp}
-            whileHover={cardHover}
-            whileTap={cardTap}
-            className="group text-left rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:border-[var(--color-primary)]/40 hover:shadow-md transition-all"
+            className="group text-left rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:border-[var(--color-primary)]/40 hover:shadow-sm transition-all"
         >
             <div className="w-full aspect-[794/1123] bg-[var(--color-bg-main)] relative overflow-hidden">
                 <div ref={previewRef} className="absolute inset-0 pointer-events-none">

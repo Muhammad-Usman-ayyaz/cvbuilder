@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { buttonTap } from '../../lib/motion';
 
 export default function Button({
   children,
@@ -14,7 +13,7 @@ export default function Button({
   className = '',
   ...props
 }) {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:pointer-events-none';
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:pointer-events-none';
   
   const variants = {
     primary: 'bg-primary text-white hover:bg-primary-hover focus:ring-primary',
@@ -26,8 +25,8 @@ export default function Button({
 
   const sizes = {
     sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2.5 text-sm',
-    lg: 'px-6 py-3.5 text-base',
+    md: 'px-4 py-2 text-sm',
+    lg: 'px-6 py-2.5 text-base',
   };
 
   return (
@@ -35,7 +34,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       disabled={disabled || isLoading}
-      whileTap={disabled || isLoading ? undefined : buttonTap}
+      disabled={disabled || isLoading}
       transition={{ duration: 0.12 }}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}

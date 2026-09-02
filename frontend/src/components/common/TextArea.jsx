@@ -138,7 +138,7 @@ export default function TextArea({
         value={value}
         onChange={onChange}
         required={required}
-        className={`block w-full appearance-none rounded-lg border px-3 py-2.5 bg-card text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm resize-y break-words ${error ? 'border-error focus:ring-error/20 focus:border-error' : 'border-border'
+        className={`block w-full appearance-none rounded-md border px-3 py-2 bg-card text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm resize-y break-words ${error ? 'border-error focus:ring-error/20 focus:border-error' : 'border-border'
           }`}
         {...props}
       />

@@ -6,6 +6,7 @@ export function UIProvider({ children }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState('account');
+  const [isCreateResumeOpen, setIsCreateResumeOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
@@ -26,6 +27,8 @@ export function UIProvider({ children }) {
   const toggleNotifications = () => setIsNotificationsOpen((prev) => !prev);
   const closeNotifications = () => setIsNotificationsOpen(false);
   const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  const openCreateResume = () => setIsCreateResumeOpen(true);
+  const closeCreateResume = () => setIsCreateResumeOpen(false);
 
   return (
     <UIContext.Provider
@@ -40,6 +43,9 @@ export function UIProvider({ children }) {
         closeNotifications,
         theme,
         toggleTheme,
+        isCreateResumeOpen,
+        openCreateResume,
+        closeCreateResume,
       }}
     >
       {children}

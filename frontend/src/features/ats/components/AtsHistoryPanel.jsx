@@ -44,7 +44,7 @@ export default function AtsHistoryPanel({ history, resumeTitleById, onSelect, is
                 <p className="text-sm font-semibold text-text-primary truncate">{resumeTitle}</p>
                 <p className="text-xs text-text-secondary mt-0.5">{formatDate(item.createdAt)}</p>
               </div>
-              <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${scoreBadgeTone(item.overallScore)}`}>
+              <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-md ${scoreBadgeTone(item.overallScore)}`}>
                 {item.overallScore}%
               </span>
             </button>

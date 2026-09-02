@@ -15,7 +15,7 @@ export default function ErrorMessage({
       variants={fadeSlideDown}
       initial="hidden"
       animate="show"
-      className={`bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3 text-sm text-error ${className}`}
+      className={`bg-red-50 border border-red-200 rounded-md p-4 flex gap-3 text-sm text-error ${className}`}
       role="alert"
       {...props}
     >

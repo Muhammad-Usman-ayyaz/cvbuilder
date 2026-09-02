@@ -139,7 +139,7 @@ export default function MyResumesPage() {
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="aspect-[3/4] rounded-xl bg-card border border-border animate-pulse" />
+            <div key={i} className="aspect-[3/4] rounded-lg bg-card border border-border animate-pulse" />
           ))}
         </div>
       ) : resumes.length === 0 ? (
@@ -268,7 +268,7 @@ function DuplicateResumeDialog({ defaultTitle, onCancel, onConfirm, isSubmitting
         role="dialog"
         aria-modal="true"
         aria-labelledby="duplicate-resume-title"
-        className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-xl p-5"
+        className="relative w-full max-w-sm bg-card border border-border rounded-lg shadow-lg p-5"
       >
         <div className="flex items-start gap-3 mb-4">
           <div className="w-9 h-9 rounded-full bg-soft-primary flex items-center justify-center shrink-0">
@@ -336,7 +336,7 @@ function DeleteConfirmDialog({ resumeTitle, onCancel, onConfirm }) {
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="delete-resume-title"
-        className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-xl p-5"
+        className="relative w-full max-w-sm bg-card border border-border rounded-lg shadow-lg p-5"
       >
         <div className="flex items-start gap-3 mb-4">
           <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center shrink-0">
