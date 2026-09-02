@@ -5,7 +5,7 @@ import { useProfile } from '../../../context/ProfileContext';
 import { useResumes } from '../../resume/hooks/useResumes';
 import { getAtsHistory } from '../../ats/api/atsApi';
 import { formatUpdatedAt } from '../../resume/utils/resumeModel';
-import QuickActionCard from '../components/QuickActionCard';
+
 import EmptyState from '../../../components/common/EmptyState';
 import RecentResumeThumb from '../components/RecentResumeThumb';
 import Card from '../../../components/common/Card';
@@ -78,41 +78,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-8">
-      {/* Quick Actions Grid */}
-      <section>
-        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">bolt</span>
-          Quick Actions
-        </h2>
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-        >
-          <QuickActionCard
-            title="Create New Resume"
-            description="Start from scratch or use an AI template"
-            icon="post_add"
-            href="/my-resumes"
-            colorClass="text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400"
-          />
-          <QuickActionCard
-            title="ATS Match Checker"
-            description="Compare your resume against a job description"
-            icon="fact_check"
-            href="/ats-checker"
-            colorClass="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400"
-          />
-          <QuickActionCard
-            title="AI Tailoring"
-            description="Optimize existing resume for a specific role"
-            icon="auto_awesome"
-            href="/ai-tailor"
-            colorClass="text-primary bg-primary/10"
-          />
-        </motion.div>
-      </section>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content Area (Recent Resumes) */}

@@ -9,6 +9,7 @@ import os
 
 from google import genai
 from google.genai import types
+from pydantic import ValidationError
 
 from models import AnalyzeRequest, AtsAnalysisResult
 
@@ -99,7 +100,27 @@ def analyze(request: AnalyzeRequest) -> AtsAnalysisResult:
         ),
     )
 
-    if response.parsed is None:
-        raise ValueError("Gemini response did not match the expected schema")
+    raw_text = (response.text or "").strip()
+    if not raw_text:
+        raise ValueError("Gemini returned an empty response")
 
-    return response.parsed
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Gemini response was not valid JSON: {exc}") from exc
+
+    if isinstance(data, dict) and isinstance(data.get("formatting"), list):
+        raw_checks = data["formatting"]
+        normalized_checks = []
+        for c in raw_checks:
+            if isinstance(c, dict):
+                label = str(c.get("label") or c.get("check") or "Formatting Check")
+                passed = bool(c.get("passed", False))
+                note = str(c.get("note") or "")
+                normalized_checks.append({"label": label, "passed": passed, "note": note})
+        data["formatting"] = {"checks": normalized_checks}
+
+    try:
+        return AtsAnalysisResult.model_validate(data)
+    except ValidationError as exc:
+        raise ValueError(f"Gemini JSON did not match expected schema: {exc}") from exc

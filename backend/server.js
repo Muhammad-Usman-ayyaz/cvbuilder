@@ -18,24 +18,32 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4000';
 app.set('trust proxy', 1);
 
 // Whitelist local development origins
-const allowedOrigins = [
+const rawOrigins = [
     'http://localhost:4000',
     'http://127.0.0.1:4000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
     FRONTEND_URL
 ];
 
+const allowedOrigins = rawOrigins.filter(Boolean).map(o => o.replace(/\/$/, ''));
+
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin) return callback(null, true); // Allow tools like Postman
-        if (allowedOrigins.includes(origin)) {
+        if (!origin) return callback(null, true); // Allow server-to-server or tools like Postman
+        const normalized = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(normalized)) {
             return callback(null, true);
-        } else {
-            return callback(new Error(`CORS blocked for origin: ${origin}`));
         }
+        console.warn(`[CORS Warning] Request from origin ${origin} was not in whitelist`);
+        return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    optionsSuccessStatus: 200
 }));
 
 app.use(express.json());

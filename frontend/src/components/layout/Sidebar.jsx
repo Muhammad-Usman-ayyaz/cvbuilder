@@ -8,6 +8,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const menuSections = [
     {
+      id: 'main',
       items: [
         { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', badge: null },
         { path: '/profile', label: 'Master Profile', icon: 'person', badge: null },
@@ -15,6 +16,7 @@ export default function Sidebar({ isOpen, onClose }) {
       ]
     },
     {
+      id: 'ai-suite',
       title: 'AI SUITE',
       items: [
         { path: '/ats-checker', label: 'ATS Checker', icon: 'fact_check', badge: 'PRO', badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
@@ -22,6 +24,7 @@ export default function Sidebar({ isOpen, onClose }) {
       ]
     },
     {
+      id: 'career',
       title: 'CAREER',
       items: [
         { path: '/applications', label: 'Applications', icon: 'work', badge: null },
@@ -87,10 +90,12 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Navigation Menu */}
         <nav className="flex-grow px-3 py-4 space-y-6 overflow-y-auto">
           {menuSections.map((section) => (
-            <div key={section.title} className="space-y-1">
-              <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-text-secondary/70">
-                {section.title}
-              </div>
+            <div key={section.id} className="space-y-1">
+              {section.title && (
+                <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-text-secondary/70">
+                  {section.title}
+                </div>
+              )}
               {section.items.map((item) => (
                 <NavLink
                   key={item.path}
