@@ -1,4 +1,5 @@
 import { supabase, createRequestClient } from '../config/supabase.js';
+import { clearAuthCookies } from '../config/cookies.js';
 
 export async function requireAuth(req, res, next) {
     let token = req.cookies.access_token;
@@ -13,8 +14,7 @@ export async function requireAuth(req, res, next) {
         const { data: { user }, error } = await supabase.auth.getUser(token);
 
         if (error || !user) {
-            res.clearCookie('access_token');
-            res.clearCookie('refresh_token');
+            clearAuthCookies(res);
             return res.status(401).json({ error: 'Invalid session' });
         }
 
