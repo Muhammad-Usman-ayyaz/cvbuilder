@@ -13,13 +13,12 @@ import { useResumes } from '../../resume/hooks/useResumes';
 import { checkAts, getAtsHistory, getAtsHistoryItem, getAtsServiceStatus, getImproveLimitStatus } from '../api/atsApi';
 import AtsResults from '../components/AtsResults';
 import AtsHistoryPanel from '../components/AtsHistoryPanel';
-import ImproveResumePanel from '../components/ImproveResumePanel';
 import { fadeSlideUp, fadeSlideDown } from '../../../lib/motion';
 
 export default function ATSCheckerPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { resumes, isLoading: resumesLoading, saveResume } = useResumes();
+  const { resumes, isLoading: resumesLoading } = useResumes();
   const [resumeId, setResumeId] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,7 +26,6 @@ export default function ATSCheckerPage() {
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [result, setResult] = useState(null);
   const [resultResumeId, setResultResumeId] = useState(null);
-  const [improveOpen, setImproveOpen] = useState(false);
   const [improveCount, setImproveCount] = useState(0);
   const [improveLimit, setImproveLimit] = useState(null);
   const [improveDailyRemaining, setImproveDailyRemaining] = useState(null);
@@ -219,7 +217,14 @@ export default function ATSCheckerPage() {
               <AtsResults
                 result={result}
                 resumeId={resumeStillExists ? resultResumeId : null}
-                onImprove={activeResume ? () => setImproveOpen(true) : undefined}
+                onImprove={
+                  activeResume
+                    ? () =>
+                        navigate('/ai-tailor', {
+                          state: { resumeId: resultResumeId, jobDescription, currentAnalysis: result },
+                        })
+                    : undefined
+                }
                 improveDisabledReason={
                   improveLimit !== null && improveCount >= improveLimit
                     ? `You've used all ${improveLimit} of your resume improvements.`
@@ -343,19 +348,6 @@ export default function ATSCheckerPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      )}
-
-      {activeResume && (
-        <ImproveResumePanel
-          isOpen={improveOpen}
-          onClose={() => setImproveOpen(false)}
-          resumeId={resultResumeId}
-          resume={activeResume}
-          jobDescription={jobDescription}
-          currentAnalysis={result}
-          saveResume={saveResume}
-          onUsed={loadImproveLimit}
-        />
       )}
     </div>
   );
