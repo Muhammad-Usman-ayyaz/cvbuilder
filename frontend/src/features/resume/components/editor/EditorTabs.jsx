@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PersonalInfoForm from './PersonalInfoForm';
 import ExperienceForm from './ExperienceForm';
 import EducationForm from './EducationForm';
@@ -25,6 +26,7 @@ const TABS = [
  */
 export default function EditorTabs({ content, onChange }) {
     const [activeIndex, setActiveIndex] = useState(0);
+    const navigate = useNavigate();
 
     const updateField = (field) => (next) => {
         onChange({ ...content, [field]: next });
@@ -129,13 +131,14 @@ export default function EditorTabs({ content, onChange }) {
                         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </button>
                 ) : (
+                    // Autosave already persists every change continuously (see
+                    // ResumeStudioPage), so "Finished" just means "done editing
+                    // for now" — take the user back to My Resumes rather than
+                    // implying there's a separate save/submit step left to do.
                     <button
                         type="button"
-                        onClick={() => {
-                            // User finished.
-                        }}
-                        className="flex items-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm ml-auto opacity-50 cursor-default"
-                        disabled
+                        onClick={() => navigate('/my-resumes')}
+                        className="flex items-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-success text-white hover:bg-success/90 transition-colors shadow-sm ml-auto"
                     >
                         Finished
                         <span className="material-symbols-outlined text-[18px]">check_circle</span>

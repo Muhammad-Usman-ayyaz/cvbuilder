@@ -8,6 +8,10 @@
 
 const ATS_SERVICE_URL = process.env.ATS_SERVICE_URL || 'http://localhost:8001';
 const ATS_SERVICE_TIMEOUT_MS = 30000;
+// The improve loop chains up to 3 rounds of (propose + rescore) — up to 6
+// Gemini calls in sequence — so it gets a much longer timeout than a
+// single /analyze call.
+const IMPROVE_SERVICE_TIMEOUT_MS = 150000;
 
 /**
  * @param {object} resumeContent
@@ -44,6 +48,52 @@ export async function analyzeResume(resumeContent, jobDescription) {
         // The Python process IS reachable here — it returned an error (e.g.
         // the Gemini call itself failed). Distinct from "service is down".
         throw new Error('ATS analysis failed. Please try again.');
+    }
+
+    return response.json();
+}
+
+/**
+ * @param {object} resumeContent
+ * @param {string} jobDescription
+ * @param {object|null} currentAnalysis - the most recent /analyze result for
+ *   this resume+JD pair, if the caller already has one (skips a redundant
+ *   Gemini call for the starting score).
+ * @returns {Promise<{
+ *   originalContent: object,
+ *   proposedContent: object,
+ *   initialScore: number,
+ *   finalScore: number,
+ *   iterations: number,
+ *   scoreHistory: number[],
+ *   finalAnalysis: object,
+ *   changeNotes: string[],
+ * }>}
+ */
+export async function improveResume(resumeContent, jobDescription, currentAnalysis) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), IMPROVE_SERVICE_TIMEOUT_MS);
+
+    let response;
+    try {
+        response = await fetch(`${ATS_SERVICE_URL}/improve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                resumeContent,
+                jobDescription,
+                currentAnalysis: currentAnalysis ?? null,
+            }),
+            signal: controller.signal,
+        });
+    } catch (err) {
+        throw serviceUnavailableError();
+    } finally {
+        clearTimeout(timeout);
+    }
+
+    if (!response.ok) {
+        throw new Error('Resume improvement failed. Please try again.');
     }
 
     return response.json();

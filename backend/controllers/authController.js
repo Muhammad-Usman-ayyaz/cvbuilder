@@ -1,39 +1,6 @@
 import * as authService from '../services/authService.js';
 import { supabase, createRequestClient } from '../config/supabase.js';
-
-function setAuthCookies(res, session) {
-    if (!session) return;
-
-    // Access token cookie
-    res.cookie('access_token', session.access_token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        maxAge: session.expires_in * 1000
-    });
-
-    // Refresh token cookie
-    res.cookie('refresh_token', session.refresh_token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        maxAge: 30 * 24 * 60 * 60 * 1000
-    });
-}
-
-function clearAuthCookies(res) {
-    res.clearCookie('access_token', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none'
-    });
-
-    res.clearCookie('refresh_token', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none'
-    });
-}
+import { setAuthCookies, clearAuthCookies } from '../config/cookies.js';
 
 export async function signup(req, res) {
     try {
@@ -45,13 +12,40 @@ export async function signup(req, res) {
             fullName
         });
 
+        let userWithProfile = null;
+
         if (data.session) {
             setAuthCookies(res, data.session);
+
+            // Same DTO shape as login — without this, the raw Supabase
+            // user object (no top-level `fullName`) was set directly into
+            // auth state, so the sidebar/navbar showed "User"/"U" until a
+            // reload triggered getMe(), which already built this DTO.
+            const requestClient = createRequestClient(data.session.access_token);
+            const profile = await authService.getUserProfile(requestClient, data.user.id);
+
+            userWithProfile = {
+                id: data.user.id,
+                email: data.user.email,
+                fullName:
+                    profile?.full_name ||
+                    data.user.user_metadata?.full_name ||
+                    ''
+            };
+        } else if (data.user) {
+            // No session yet (e.g. email confirmation required) — no access
+            // token to query the profile table with, but the name supplied
+            // at signup is already on the user's metadata, so use that.
+            userWithProfile = {
+                id: data.user.id,
+                email: data.user.email,
+                fullName: data.user.user_metadata?.full_name || fullName || ''
+            };
         }
 
         res.status(200).json({
             success: true,
-            user: data.user,
+            user: userWithProfile,
             access_token: data.session?.access_token
         });
 

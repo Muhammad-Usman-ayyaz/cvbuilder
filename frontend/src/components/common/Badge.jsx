@@ -8,13 +8,18 @@ export default function Badge({
 }) {
   const baseStyles = 'inline-flex items-center font-medium rounded-md';
   
+  // Translucent-over-token backgrounds (color/N opacity), not fixed
+  // Tailwind palette swatches (bg-green-50 etc.) — those don't adapt under
+  // the app's .dark class since only --color-* tokens are redefined there.
+  // Matches the pattern already used in AtsResults.jsx's score chips and
+  // Sidebar's AI badge (bg-primary/10 text-primary border-primary/20).
   const variants = {
-    success: 'bg-green-50 text-success border border-green-200',
-    warning: 'bg-amber-50 text-warning border border-amber-200',
-    error: 'bg-red-50 text-error border border-red-200',
-    info: 'bg-blue-50 text-blue-600 border border-blue-200',
+    success: 'bg-success/10 text-success border border-success/20',
+    warning: 'bg-warning/10 text-warning border border-warning/20',
+    error: 'bg-error/10 text-error border border-error/20',
+    info: 'bg-primary/10 text-primary border border-primary/20',
     primary: 'bg-soft-primary text-primary border border-primary/20',
-    neutral: 'bg-slate-50 text-text-secondary border border-border',
+    neutral: 'bg-bg-main text-text-secondary border border-border',
   };
 
   const sizes = {

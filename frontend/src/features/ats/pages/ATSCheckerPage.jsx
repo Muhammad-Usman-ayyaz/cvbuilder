@@ -10,7 +10,7 @@ import ErrorMessage from '../../../components/common/ErrorMessage';
 import EmptyState from '../../../components/common/EmptyState';
 import Loader from '../../../components/feedback/Loader';
 import { useResumes } from '../../resume/hooks/useResumes';
-import { checkAts, getAtsHistory, getAtsHistoryItem, getAtsServiceStatus } from '../api/atsApi';
+import { checkAts, getAtsHistory, getAtsHistoryItem, getAtsServiceStatus, getImproveLimitStatus } from '../api/atsApi';
 import AtsResults from '../components/AtsResults';
 import AtsHistoryPanel from '../components/AtsHistoryPanel';
 import { fadeSlideUp, fadeSlideDown } from '../../../lib/motion';
@@ -26,11 +26,15 @@ export default function ATSCheckerPage() {
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [result, setResult] = useState(null);
   const [resultResumeId, setResultResumeId] = useState(null);
+  const [improveCount, setImproveCount] = useState(0);
+  const [improveLimit, setImproveLimit] = useState(null);
+  const [improveDailyRemaining, setImproveDailyRemaining] = useState(null);
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [checkCount, setCheckCount] = useState(0);
   const [checkLimit, setCheckLimit] = useState(null);
+  const [checkDailyRemaining, setCheckDailyRemaining] = useState(null);
 
   // Lets the page show "is the ATS service actually up" without anyone
   // needing to check terminals. null = not checked yet (renders nothing).
@@ -39,7 +43,12 @@ export default function ATSCheckerPage() {
   const resumeOptions = resumes.map((r) => ({ value: r.id, label: r.title }));
   const resumeTitleById = Object.fromEntries(resumes.map((r) => [r.id, r.title]));
 
+  // Two distinct caps, shown with distinct messages: a per-user lifetime
+  // cap (isCapped) vs. a project-wide daily Gemini budget shared by every
+  // user (isDailyCapped) — see the budget comment in atsController.js.
   const isCapped = checkLimit !== null && checkCount >= checkLimit;
+  const isDailyCapped = checkDailyRemaining === 0;
+  const isBlocked = isCapped || isDailyCapped;
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -48,6 +57,7 @@ export default function ATSCheckerPage() {
       setHistory(data.history);
       setCheckCount(data.count);
       setCheckLimit(data.limit);
+      setCheckDailyRemaining(data.dailyGlobalRemaining ?? null);
     } catch {
       // History is supplementary — a failed load shouldn't block the page.
       setHistory([]);
@@ -66,6 +76,22 @@ export default function ATSCheckerPage() {
       .catch(() => setServiceStatus(null));
   }, []);
 
+  const loadImproveLimit = useCallback(async () => {
+    try {
+      const data = await getImproveLimitStatus();
+      setImproveCount(data.count);
+      setImproveLimit(data.limit);
+      setImproveDailyRemaining(data.dailyGlobalRemaining);
+    } catch {
+      // Non-critical — the Improve button just won't preemptively disable;
+      // the backend still enforces both caps server-side either way.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadImproveLimit();
+  }, [loadImproveLimit]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -73,6 +99,10 @@ export default function ATSCheckerPage() {
 
     if (isCapped) {
       setError(`You've used all ${checkLimit} of your ATS checks.`);
+      return;
+    }
+    if (isDailyCapped) {
+      setError('The daily AI usage limit for ATS checks has been reached for all users. Please try again tomorrow.');
       return;
     }
     if (!resumeId) {
@@ -116,6 +146,7 @@ export default function ATSCheckerPage() {
       const item = await getAtsHistoryItem(id);
       setResult(item.result);
       setResultResumeId(item.resumeId);
+      setJobDescription(item.jobDescription || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err.message || 'Failed to load that past check.');
@@ -135,6 +166,7 @@ export default function ATSCheckerPage() {
   }, []);
 
   const resumeStillExists = Boolean(resultResumeId && resumeTitleById[resultResumeId]);
+  const activeResume = resumes.find((r) => r.id === resultResumeId);
   const selectedResumeTitle = resumeTitleById[resultResumeId] || '(resume deleted)';
 
   return (
@@ -182,7 +214,25 @@ export default function ATSCheckerPage() {
                 </Button>
               </div>
 
-              <AtsResults result={result} resumeId={resumeStillExists ? resultResumeId : null} />
+              <AtsResults
+                result={result}
+                resumeId={resumeStillExists ? resultResumeId : null}
+                onImprove={
+                  activeResume
+                    ? () =>
+                        navigate('/ai-tailor', {
+                          state: { resumeId: resultResumeId, jobDescription, currentAnalysis: result },
+                        })
+                    : undefined
+                }
+                improveDisabledReason={
+                  improveLimit !== null && improveCount >= improveLimit
+                    ? `You've used all ${improveLimit} of your resume improvements.`
+                    : improveDailyRemaining === 0
+                      ? 'The daily AI usage limit for resume improvements has been reached for all users. Please try again tomorrow.'
+                      : null
+                }
+              />
 
               {/* Bottom Action Bar */}
               <div className="flex justify-center pt-2 pb-6">
@@ -206,7 +256,8 @@ export default function ATSCheckerPage() {
                 title="Run a check"
                 subtitle={
                   checkLimit !== null
-                    ? `${Math.max(checkLimit - checkCount, 0)} of ${checkLimit} checks remaining`
+                    ? `${Math.max(checkLimit - checkCount, 0)} of ${checkLimit} checks remaining${checkDailyRemaining !== null ? ` · ${checkDailyRemaining} left today (all users)` : ''
+                    }`
                     : undefined
                 }
                 headerActions={
@@ -250,11 +301,17 @@ export default function ATSCheckerPage() {
                       message={`You've used all ${checkLimit} of your ATS checks.`}
                     />
                   )}
+                  {!isCapped && isDailyCapped && (
+                    <ErrorMessage
+                      title="Daily limit reached"
+                      message="The daily AI usage limit for ATS checks has been reached for all users. This resets tomorrow — it's not tied to your personal check count."
+                    />
+                  )}
                   <Select
                 label="Resume"
                 id="resumeId"
                 required
-                disabled={isCapped}
+                disabled={isBlocked}
                 value={resumeId}
                 onChange={(e) => setResumeId(e.target.value)}
                 options={resumeOptions}
@@ -264,7 +321,7 @@ export default function ATSCheckerPage() {
                 label="Job Description"
                 id="jobDescription"
                 required
-                disabled={isCapped}
+                disabled={isBlocked}
                 rows={8}
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
@@ -272,10 +329,10 @@ export default function ATSCheckerPage() {
                 helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
               />
 
-              {error && !isCapped && <ErrorMessage message={error} />}
+              {error && !isBlocked && <ErrorMessage message={error} />}
 
               <div className="flex justify-end">
-                <Button type="submit" isLoading={isSubmitting} disabled={isCapped}>
+                <Button type="submit" isLoading={isSubmitting} disabled={isBlocked}>
                   {isSubmitting ? 'Checking...' : 'Check Resume'}
                 </Button>
               </div>

@@ -86,7 +86,7 @@ export default function ArrayItemShell({
                             type="button"
                             onClick={onRemove}
                             aria-label={removeLabel}
-                            className="p-1.5 rounded-md text-text-secondary hover:text-error hover:bg-red-50 transition-colors"
+                            className="p-1.5 rounded-md text-text-secondary hover:text-error hover:bg-error/10 transition-colors"
                         >
                             <span className="material-symbols-outlined text-[18px]">delete_outline</span>
                         </button>

@@ -15,21 +15,21 @@ export default function ErrorMessage({
       variants={fadeSlideDown}
       initial="hidden"
       animate="show"
-      className={`bg-red-50 border border-red-200 rounded-md p-4 flex gap-3 text-sm text-error ${className}`}
+      className={`bg-error/10 border border-error/20 rounded-lg p-4 flex gap-3 text-sm text-error ${className}`}
       role="alert"
       {...props}
     >
-      <span className="material-symbols-outlined text-[20px] shrink-0 text-red-600 select-none">
+      <span className="material-symbols-outlined text-[20px] shrink-0 text-error select-none">
         error
       </span>
       <div className="flex-grow">
-        {title && <h5 className="font-semibold text-red-800">{title}</h5>}
-        <div className="text-red-700 mt-0.5">{message}</div>
+        {title && <h5 className="font-semibold text-error">{title}</h5>}
+        <div className="text-error/90 mt-0.5">{message}</div>
       </div>
       {onClose && (
         <button
           onClick={onClose}
-          className="text-red-600 hover:text-red-800 transition-colors select-none shrink-0"
+          className="text-error hover:text-error/70 transition-colors select-none shrink-0"
           aria-label="Close alert"
         >
           <span className="material-symbols-outlined text-[18px]">close</span>
