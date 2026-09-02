@@ -17,7 +17,7 @@ export default function Sidebar({ isOpen, onClose }) {
     {
       title: 'AI SUITE',
       items: [
-        { path: '/ats-checker', label: 'ATS Checker', icon: 'fact_check', badge: 'PRO', badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+        { path: '/ats-checker', label: 'ATS Checker', icon: 'fact_check', badge: null },
         { path: '/ai-tailor', label: 'AI Tailoring', icon: 'auto_fix_high', badge: 'AI', badgeColor: 'bg-primary/10 text-primary border-primary/20' },
       ]
     },

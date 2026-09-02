@@ -123,7 +123,7 @@ export default function MyResumesPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
       <PageHeader
         title="My Resumes"
-        subtitle="Create, edit, and manage all your resume versions in one place."
+        description="Create, edit, and manage all your resume versions in one place."
         actions={
           <Button
             type="button"
@@ -339,7 +339,7 @@ function DeleteConfirmDialog({ resumeTitle, onCancel, onConfirm }) {
         className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-xl p-5"
       >
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-full bg-error/10 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[18px] text-error">delete_outline</span>
           </div>
           <div>

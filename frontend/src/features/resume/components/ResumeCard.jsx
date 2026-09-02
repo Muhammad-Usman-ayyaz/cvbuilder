@@ -106,7 +106,7 @@ export default function ResumeCard({ resume, atsScore, onOpen, onDuplicate, onDe
                         type="button"
                         onClick={() => onDelete(resume.id)}
                         aria-label="Delete resume"
-                        className="p-1.5 rounded-md text-text-secondary hover:text-error hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-md text-text-secondary hover:text-error hover:bg-error/10 transition-colors"
                     >
                         <span className="material-symbols-outlined text-[16px]">delete_outline</span>
                     </button>

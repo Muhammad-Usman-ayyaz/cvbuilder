@@ -36,6 +36,7 @@ export default function ATSCheckerPage() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [checkCount, setCheckCount] = useState(0);
   const [checkLimit, setCheckLimit] = useState(null);
+  const [checkDailyRemaining, setCheckDailyRemaining] = useState(null);
 
   // Lets the page show "is the ATS service actually up" without anyone
   // needing to check terminals. null = not checked yet (renders nothing).
@@ -44,7 +45,12 @@ export default function ATSCheckerPage() {
   const resumeOptions = resumes.map((r) => ({ value: r.id, label: r.title }));
   const resumeTitleById = Object.fromEntries(resumes.map((r) => [r.id, r.title]));
 
+  // Two distinct caps, shown with distinct messages: a per-user lifetime
+  // cap (isCapped) vs. a project-wide daily Gemini budget shared by every
+  // user (isDailyCapped) — see the budget comment in atsController.js.
   const isCapped = checkLimit !== null && checkCount >= checkLimit;
+  const isDailyCapped = checkDailyRemaining === 0;
+  const isBlocked = isCapped || isDailyCapped;
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -53,6 +59,7 @@ export default function ATSCheckerPage() {
       setHistory(data.history);
       setCheckCount(data.count);
       setCheckLimit(data.limit);
+      setCheckDailyRemaining(data.dailyGlobalRemaining ?? null);
     } catch {
       // History is supplementary — a failed load shouldn't block the page.
       setHistory([]);
@@ -94,6 +101,10 @@ export default function ATSCheckerPage() {
 
     if (isCapped) {
       setError(`You've used all ${checkLimit} of your ATS checks.`);
+      return;
+    }
+    if (isDailyCapped) {
+      setError('The daily AI usage limit for ATS checks has been reached for all users. Please try again tomorrow.');
       return;
     }
     if (!resumeId) {
@@ -240,7 +251,8 @@ export default function ATSCheckerPage() {
                 title="Run a check"
                 subtitle={
                   checkLimit !== null
-                    ? `${Math.max(checkLimit - checkCount, 0)} of ${checkLimit} checks remaining`
+                    ? `${Math.max(checkLimit - checkCount, 0)} of ${checkLimit} checks remaining${checkDailyRemaining !== null ? ` · ${checkDailyRemaining} left today (all users)` : ''
+                    }`
                     : undefined
                 }
                 headerActions={
@@ -284,11 +296,17 @@ export default function ATSCheckerPage() {
                       message={`You've used all ${checkLimit} of your ATS checks.`}
                     />
                   )}
+                  {!isCapped && isDailyCapped && (
+                    <ErrorMessage
+                      title="Daily limit reached"
+                      message="The daily AI usage limit for ATS checks has been reached for all users. This resets tomorrow — it's not tied to your personal check count."
+                    />
+                  )}
                   <Select
                 label="Resume"
                 id="resumeId"
                 required
-                disabled={isCapped}
+                disabled={isBlocked}
                 value={resumeId}
                 onChange={(e) => setResumeId(e.target.value)}
                 options={resumeOptions}
@@ -298,7 +316,7 @@ export default function ATSCheckerPage() {
                 label="Job Description"
                 id="jobDescription"
                 required
-                disabled={isCapped}
+                disabled={isBlocked}
                 rows={8}
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
@@ -306,10 +324,10 @@ export default function ATSCheckerPage() {
                 helpText="Keywords, skills, and tools mentioned here are checked against the selected resume."
               />
 
-              {error && !isCapped && <ErrorMessage message={error} />}
+              {error && !isBlocked && <ErrorMessage message={error} />}
 
               <div className="flex justify-end">
-                <Button type="submit" isLoading={isSubmitting} disabled={isCapped}>
+                <Button type="submit" isLoading={isSubmitting} disabled={isBlocked}>
                   {isSubmitting ? 'Checking...' : 'Check Resume'}
                 </Button>
               </div>

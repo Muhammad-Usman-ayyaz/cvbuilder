@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { exportResumeAsPdf } from '../../utils/exportPdf';
 
@@ -70,16 +70,27 @@ export const StudioHeader = ({
                         placeholder="Resume Title"
                     />
 
-                    {/* Save Status Indicator */}
+                    {/* Save Status Indicator — explicitly branches on all three
+                        real statuses ResumeStudioPage sets ('unsaved',
+                        'saving', 'saved') instead of defaulting anything
+                        that isn't 'saving' to the green "Saved" look, which
+                        previously showed a green dot next to the text
+                        "unsaved" right after every keystroke. */}
                     <span className="text-xs text-text-secondary flex items-center gap-1">
                         <span
                             className={`w-2 h-2 rounded-full ${
-                                saveStatus === 'Saving...' || saveStatus === 'saving'
+                                saveStatus === 'saving'
                                     ? 'bg-warning animate-pulse'
-                                    : 'bg-success'
+                                    : saveStatus === 'unsaved'
+                                        ? 'bg-warning'
+                                        : 'bg-success'
                             }`}
                         />
-                        {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : saveStatus}
+                        {saveStatus === 'saving'
+                            ? 'Saving...'
+                            : saveStatus === 'unsaved'
+                                ? 'Unsaved changes'
+                                : 'Saved'}
                     </span>
                 </div>
             </div>

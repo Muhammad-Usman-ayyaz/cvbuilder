@@ -1,7 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import { useUI } from '../../context/UIContext';
+import { useResumes } from '../../features/resume/hooks/useResumes';
+import { getAtsHistory } from '../../features/ats/api/atsApi';
+import { formatUpdatedAt } from '../../features/resume/utils/resumeModel';
+
+const NOTIFICATIONS_LIMIT = 5;
 
 export default function TopNavbar({ onMenuClick, title }) {
   const { user, logout } = useAuth();
@@ -10,6 +15,8 @@ export default function TopNavbar({ onMenuClick, title }) {
     isNotificationsOpen,
     toggleNotifications,
     closeNotifications,
+    theme,
+    toggleTheme,
   } = useUI();
 
   const navigate = useNavigate();
@@ -18,6 +25,44 @@ export default function TopNavbar({ onMenuClick, title }) {
 
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
+
+  // Real recent-activity feed reused from the same /api/ats/history
+  // endpoint the Dashboard's own activity feed and My Resumes' score
+  // badges already call — no new backend route, and no fabricated data
+  // (this dropdown previously showed two hardcoded fake notifications).
+  const { resumes } = useResumes();
+  const [recentChecks, setRecentChecks] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAtsHistory()
+      .then((data) => {
+        if (!cancelled) setRecentChecks(data.history.slice(0, NOTIFICATIONS_LIMIT));
+      })
+      .catch(() => {
+        if (!cancelled) setRecentChecks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const resumeTitleById = useMemo(
+    () => Object.fromEntries(resumes.map((r) => [r.id, r.title])),
+    [resumes]
+  );
+
+  const notifications = useMemo(
+    () =>
+      recentChecks.map((c) => ({
+        id: c.id,
+        title: `ATS check on "${resumeTitleById[c.resumeId] || 'a deleted resume'}" — scored ${c.overallScore}%`,
+        time: formatUpdatedAt(c.createdAt),
+        icon: 'fact_check',
+        onClick: () => navigate('/ats-checker', { state: { openHistoryId: c.id } }),
+      })),
+    [recentChecks, resumeTitleById, navigate]
+  );
 
   // Map routes to dynamic titles if title prop not explicitly overridden
   const routeTitles = {
@@ -30,11 +75,6 @@ export default function TopNavbar({ onMenuClick, title }) {
   };
 
   const displayTitle = title || routeTitles[location.pathname] || 'AI Resume Builder';
-
-  const notifications = [
-    { id: 1, title: 'Resume ATS Score Ready', time: '5m ago', unread: true, icon: 'fact_check' },
-    { id: 2, title: 'AI Tailoring complete for Software Engineer role', time: '1h ago', unread: false, icon: 'auto_fix_high' },
-  ];
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -96,6 +136,18 @@ export default function TopNavbar({ onMenuClick, title }) {
           <span>New Resume</span>
         </Link>
 
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className="text-text-secondary hover:text-primary p-2 rounded-xl hover:bg-bg-main border border-transparent hover:border-border transition-all"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <span className="material-symbols-outlined text-[22px]">
+            {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+          </span>
+        </button>
+
         {/* Notifications Dropdown */}
         <div className="relative" ref={notificationRef}>
           <button
@@ -104,48 +156,46 @@ export default function TopNavbar({ onMenuClick, title }) {
             aria-label="Notifications"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
-            {notifications.some((n) => n.unread) && (
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-card animate-pulse" />
-            )}
           </button>
 
           {isNotificationsOpen && (
             <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-card border border-border shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-xl">
-              <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-text-primary">
-                    Notifications
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-primary/10 text-primary">
-                    {notifications.filter(n => n.unread).length} new
-                  </span>
+              <div className="px-4 py-2.5 border-b border-border">
+                <span className="text-sm font-bold text-text-primary">
+                  Recent Activity
+                </span>
+              </div>
+              {notifications.length === 0 ? (
+                <p className="px-4 py-6 text-xs text-text-secondary text-center">
+                  No notifications yet — run an ATS check to see it here.
+                </p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto divide-y divide-border/40">
+                  {notifications.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        closeNotifications();
+                        item.onClick();
+                      }}
+                      className="w-full p-3 text-xs flex items-start gap-3 hover:bg-bg-main/60 transition-colors text-left"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">
+                        {item.icon}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-text-primary leading-tight line-clamp-2">
+                          {item.title}
+                        </p>
+                        <p className="text-[10px] text-text-secondary mt-1">
+                          {item.time}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <button className="text-xs text-primary font-semibold hover:underline">
-                  Mark all read
-                </button>
-              </div>
-              <div className="max-h-64 overflow-y-auto divide-y divide-border/40">
-                {notifications.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-3 text-xs flex items-start gap-3 hover:bg-bg-main/60 transition-colors ${
-                      item.unread ? 'bg-primary/5' : ''
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">
-                      {item.icon || 'notifications'}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-text-primary leading-tight">
-                        {item.title}
-                      </p>
-                      <p className="text-[10px] text-text-secondary mt-1">
-                        {item.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -163,7 +213,9 @@ export default function TopNavbar({ onMenuClick, title }) {
               <span className="text-xs font-bold text-text-primary truncate max-w-[110px]">
                 {user?.fullName || 'User'}
               </span>
-              <span className="text-[10px] text-text-secondary">Free Account</span>
+              <span className="text-[10px] text-text-secondary truncate max-w-[110px]">
+                {user?.email || ''}
+              </span>
             </div>
             <span
               className={`material-symbols-outlined text-[18px] text-text-secondary transition-transform duration-200 ${
