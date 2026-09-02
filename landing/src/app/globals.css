@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/*
+ * Same token names/values as the main app's frontend/src/styles/globals.css,
+ * so this landing page reads as the same product rather than a separate
+ * marketing site bolted on afterward.
+ */
+@theme {
+  --color-primary: #2C5282;
+  --color-primary-hover: #1A365D;
+  --color-secondary: #14B8A6;
+  --color-bg-main: #F8FAFC;
+  --color-card: #FFFFFF;
+  --color-soft-primary: #EAF0F6;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-border: #E2E8F0;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  /* Used for small primary-colored text sitting on a --color-soft-primary
+     chip/badge background. Equal to --color-primary in light mode; the
+     dark-mode override below lightens it, since --color-soft-primary's
+     dark value is too close in luminance to the navy --color-primary for
+     WCAG AA text contrast (4.5:1) — this page's own dark-mode media query
+     surfaced that, unlike the main app, which toggles dark mode via an
+     explicit class the user opts into rather than prefers-color-scheme. */
+  --color-primary-on-soft: var(--color-primary);
+
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-main: #0F172A;
+    --color-card: #1E293B;
+    --color-soft-primary: #1C2F45;
+    --color-text-primary: #F8FAFC;
+    --color-text-secondary: #94A3B8;
+    --color-border: #334155;
+    --color-primary-on-soft: #7FB2E5;
+  }
+}
+
+body {
+  background-color: var(--color-bg-main);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}

@@ -10,15 +10,16 @@ import ErrorMessage from '../../../components/common/ErrorMessage';
 import EmptyState from '../../../components/common/EmptyState';
 import Loader from '../../../components/feedback/Loader';
 import { useResumes } from '../../resume/hooks/useResumes';
-import { checkAts, getAtsHistory, getAtsHistoryItem, getAtsServiceStatus } from '../api/atsApi';
+import { checkAts, getAtsHistory, getAtsHistoryItem, getAtsServiceStatus, getImproveLimitStatus } from '../api/atsApi';
 import AtsResults from '../components/AtsResults';
 import AtsHistoryPanel from '../components/AtsHistoryPanel';
+import ImproveResumePanel from '../components/ImproveResumePanel';
 import { fadeSlideUp, fadeSlideDown } from '../../../lib/motion';
 
 export default function ATSCheckerPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { resumes, isLoading: resumesLoading } = useResumes();
+  const { resumes, isLoading: resumesLoading, saveResume } = useResumes();
   const [resumeId, setResumeId] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,6 +27,10 @@ export default function ATSCheckerPage() {
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [result, setResult] = useState(null);
   const [resultResumeId, setResultResumeId] = useState(null);
+  const [improveOpen, setImproveOpen] = useState(false);
+  const [improveCount, setImproveCount] = useState(0);
+  const [improveLimit, setImproveLimit] = useState(null);
+  const [improveDailyRemaining, setImproveDailyRemaining] = useState(null);
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -65,6 +70,22 @@ export default function ATSCheckerPage() {
       .then((data) => setServiceStatus(data.available))
       .catch(() => setServiceStatus(null));
   }, []);
+
+  const loadImproveLimit = useCallback(async () => {
+    try {
+      const data = await getImproveLimitStatus();
+      setImproveCount(data.count);
+      setImproveLimit(data.limit);
+      setImproveDailyRemaining(data.dailyGlobalRemaining);
+    } catch {
+      // Non-critical — the Improve button just won't preemptively disable;
+      // the backend still enforces both caps server-side either way.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadImproveLimit();
+  }, [loadImproveLimit]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -116,6 +137,7 @@ export default function ATSCheckerPage() {
       const item = await getAtsHistoryItem(id);
       setResult(item.result);
       setResultResumeId(item.resumeId);
+      setJobDescription(item.jobDescription || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err.message || 'Failed to load that past check.');
@@ -135,6 +157,7 @@ export default function ATSCheckerPage() {
   }, []);
 
   const resumeStillExists = Boolean(resultResumeId && resumeTitleById[resultResumeId]);
+  const activeResume = resumes.find((r) => r.id === resultResumeId);
   const selectedResumeTitle = resumeTitleById[resultResumeId] || '(resume deleted)';
 
   return (
@@ -182,7 +205,18 @@ export default function ATSCheckerPage() {
                 </Button>
               </div>
 
-              <AtsResults result={result} resumeId={resumeStillExists ? resultResumeId : null} />
+              <AtsResults
+                result={result}
+                resumeId={resumeStillExists ? resultResumeId : null}
+                onImprove={activeResume ? () => setImproveOpen(true) : undefined}
+                improveDisabledReason={
+                  improveLimit !== null && improveCount >= improveLimit
+                    ? `You've used all ${improveLimit} of your resume improvements.`
+                    : improveDailyRemaining === 0
+                      ? 'The daily AI usage limit for resume improvements has been reached for all users. Please try again tomorrow.'
+                      : null
+                }
+              />
 
               {/* Bottom Action Bar */}
               <div className="flex justify-center pt-2 pb-6">
@@ -291,6 +325,19 @@ export default function ATSCheckerPage() {
             </motion.div>
           )}
         </AnimatePresence>
+      )}
+
+      {activeResume && (
+        <ImproveResumePanel
+          isOpen={improveOpen}
+          onClose={() => setImproveOpen(false)}
+          resumeId={resultResumeId}
+          resume={activeResume}
+          jobDescription={jobDescription}
+          currentAnalysis={result}
+          saveResume={saveResume}
+          onUsed={loadImproveLimit}
+        />
       )}
     </div>
   );

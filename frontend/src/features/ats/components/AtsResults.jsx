@@ -138,7 +138,9 @@ function FixInStudioButton({ onClick, label = 'Fix in Studio' }) {
   );
 }
 
-export default function AtsResults({ result, resumeId }) {
+const IMPROVE_TARGET_SCORE = 95;
+
+export default function AtsResults({ result, resumeId, onImprove, improveDisabledReason }) {
   const { overallScore, keywordMatch, formatting, warnings } = result;
   const navigate = useNavigate();
 
@@ -147,6 +149,8 @@ export default function AtsResults({ result, resumeId }) {
     .map((check) => ({ label: check.label, note: check.note, section: CHECK_SECTION_MAP[check.label] }));
 
   const canFixInStudio = Boolean(resumeId) && (keywordMatch.missing.length > 0 || failedChecks.length > 0);
+  const canImprove = Boolean(resumeId) && typeof onImprove === 'function';
+  const alreadyAtTarget = overallScore >= IMPROVE_TARGET_SCORE;
 
   const handleFixInStudio = () => {
     navigate(`/resume-studio/${resumeId}`, {
@@ -173,6 +177,27 @@ export default function AtsResults({ result, resumeId }) {
           <ScoreGauge score={overallScore} label="Overall ATS Score" />
           <ScoreGauge score={keywordMatch.score} label="Keyword Match" />
         </motion.div>
+
+        {canImprove && (
+          <div className="mt-6 pt-5 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-sm text-text-secondary">
+              {improveDisabledReason
+                ? improveDisabledReason
+                : alreadyAtTarget
+                  ? `This resume is already at or above the ${IMPROVE_TARGET_SCORE}% target for this job description.`
+                  : `AI can propose truthful edits aimed at reaching ~${IMPROVE_TARGET_SCORE}% for this job description.`}
+            </p>
+            <button
+              type="button"
+              onClick={onImprove}
+              disabled={alreadyAtTarget || Boolean(improveDisabledReason)}
+              className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+              Improve This Resume
+            </button>
+          </div>
+        )}
       </Card>
 
       <Card title="Keyword Match" subtitle={`${keywordMatch.matched.length} matched · ${keywordMatch.missing.length} missing`}>

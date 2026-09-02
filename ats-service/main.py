@@ -6,8 +6,8 @@ from fastapi import FastAPI, HTTPException
 
 load_dotenv()
 
-from models import AnalyzeRequest, AtsAnalysisResult  # noqa: E402
-from gemini_analyzer import analyze  # noqa: E402
+from models import AnalyzeRequest, AtsAnalysisResult, ImproveRequest, ImproveResult  # noqa: E402
+from gemini_analyzer import analyze, improve_and_rescore  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ats-service")
@@ -29,6 +29,15 @@ def analyze_resume(req: AnalyzeRequest):
         # and nothing about the request should end up in logs either.
         logger.error("ATS analysis failed: %s", e)
         raise HTTPException(status_code=502, detail="ATS analysis failed") from e
+
+
+@app.post("/improve", response_model=ImproveResult)
+def improve_resume(req: ImproveRequest):
+    try:
+        return improve_and_rescore(req)
+    except Exception as e:
+        logger.error("ATS improvement failed: %s", e)
+        raise HTTPException(status_code=502, detail="ATS improvement failed") from e
 
 
 if __name__ == "__main__":

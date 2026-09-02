@@ -16,6 +16,35 @@ export async function getAtsHistory() {
     });
 }
 
+/**
+ * @param {{ resumeId: string, jobDescription: string, currentAnalysis?: object }} params
+ * @returns {Promise<{
+ *   originalContent: object,
+ *   proposedContent: object,
+ *   initialScore: number,
+ *   finalScore: number,
+ *   iterations: number,
+ *   scoreHistory: number[],
+ *   finalAnalysis: object,
+ *   changeNotes: string[],
+ * }>}
+ */
+export async function improveResume({ resumeId, jobDescription, currentAnalysis }) {
+    return fetchApi('/ats/improve', {
+        method: 'POST',
+        body: { resumeId, jobDescription, currentAnalysis },
+    });
+}
+
+/**
+ * @returns {Promise<{ count: number, limit: number, dailyGlobalRemaining: number }>}
+ */
+export async function getImproveLimitStatus() {
+    return fetchApi('/ats/improve/limit', {
+        method: 'GET',
+    });
+}
+
 export async function getAtsHistoryItem(id) {
     return fetchApi(`/ats/history/${id}`, {
         method: 'GET',
