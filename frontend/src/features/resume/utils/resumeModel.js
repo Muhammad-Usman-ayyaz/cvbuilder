@@ -43,12 +43,19 @@
  * @property {string} category
  * @property {string[]} items
  *
+ * @typedef {Object} CertificationItem
+ * @property {string} id
+ * @property {string} name
+ * @property {string} issuer
+ * @property {string} date
+ *
  * @typedef {Object} ResumeContent
  * @property {PersonalInfo} personal
  * @property {ExperienceItem[]} experience
  * @property {EducationItem[]} education
  * @property {ProjectItem[]} projects
  * @property {SkillGroup[]} skills
+ * @property {CertificationItem[]} certifications
  *
  * @typedef {Object} ResumeDocument
  * @property {string} id
@@ -202,6 +209,16 @@ export function createEmptySkillGroup() {
     };
 }
 
+/** @returns {CertificationItem} */
+export function createEmptyCertification() {
+    return {
+        id: generateId('cert'),
+        name: '',
+        issuer: '',
+        date: '',
+    };
+}
+
 /** @returns {ResumeContent} */
 export function createEmptyContent() {
     return {
@@ -210,6 +227,7 @@ export function createEmptyContent() {
         education: [],
         projects: [],
         skills: [],
+        certifications: [],
     };
 }
 
@@ -290,6 +308,16 @@ export function createEmptyResume({ title, templateId = 'classic', themeColor = 
                 description: proj.description || '',
             }));
         }
+
+        // Pre-fill Certifications
+        if (Array.isArray(profile.certifications) && profile.certifications.length > 0) {
+            emptyContent.certifications = profile.certifications.map((cert) => ({
+                id: generateId('cert'),
+                name: cert.name || '',
+                issuer: cert.issuer || '',
+                date: cert.date || '',
+            }));
+        }
     }
 
     return {
@@ -318,6 +346,7 @@ export function duplicateResume(resume, newTitle) {
     clone.content.education = clone.content.education.map((item) => ({ ...item, id: generateId('edu') }));
     clone.content.projects = clone.content.projects.map((item) => ({ ...item, id: generateId('proj') }));
     clone.content.skills = clone.content.skills.map((item) => ({ ...item, id: generateId('skill') }));
+    clone.content.certifications = (clone.content.certifications || []).map((item) => ({ ...item, id: generateId('cert') }));
     return clone;
 }
 

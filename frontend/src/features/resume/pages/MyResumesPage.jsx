@@ -125,14 +125,24 @@ export default function MyResumesPage() {
         title="My Resumes"
         description="Create, edit, and manage all your resume versions in one place."
         actions={
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => setIsCreateOpen(true)}
-            leftIcon={<span className="material-symbols-outlined text-[18px]">add</span>}
-          >
-            New Resume
-          </Button>
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate('/upload-cv')}
+              leftIcon={<span className="material-symbols-outlined text-[18px]">upload_file</span>}
+            >
+              Upload CV
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => setIsCreateOpen(true)}
+              leftIcon={<span className="material-symbols-outlined text-[18px]">add</span>}
+            >
+              New Resume
+            </Button>
+          </>
         }
       />
 

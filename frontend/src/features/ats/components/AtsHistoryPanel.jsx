@@ -32,7 +32,12 @@ export default function AtsHistoryPanel({ history, resumeTitleById, onSelect, is
     <Card title="Past Checks" subtitle={`${history.length} check${history.length === 1 ? '' : 's'}`} noPadding>
       <div className="divide-y divide-border">
         {history.map((item) => {
-          const resumeTitle = resumeTitleById[item.resumeId] || '(resume deleted)';
+          // null resumeId = a check run against a CV uploaded directly to
+          // the ATS Checker and never saved (see ATSCheckerPage.jsx's
+          // "Upload CV" option) — distinct from a resume that once existed
+          // and was later deleted.
+          const resumeTitle =
+            item.resumeId == null ? 'Uploaded CV (not saved)' : resumeTitleById[item.resumeId] || '(resume deleted)';
           return (
             <button
               key={item.id}

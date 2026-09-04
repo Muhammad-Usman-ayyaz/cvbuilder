@@ -7,7 +7,13 @@
  */
 
 const ATS_SERVICE_URL = process.env.ATS_SERVICE_URL || 'http://localhost:8001';
-const ATS_SERVICE_TIMEOUT_MS = 30000;
+// gemini_analyzer.py caps each model attempt at 20s before failing over to
+// the next one in FALLBACK_MODELS (1s pause between attempts) — a 30s
+// timeout here could fire mid-fallback and surface a false "service
+// unavailable" for a request that would have succeeded moments later.
+// 60s covers two full attempts with margin. See uploadService.js's
+// EXTRACT_SERVICE_TIMEOUT_MS for the same reasoning.
+const ATS_SERVICE_TIMEOUT_MS = 60000;
 // The improve loop chains up to 3 rounds of (propose + rescore) — up to 6
 // Gemini calls in sequence — so it gets a much longer timeout than a
 // single /analyze call.

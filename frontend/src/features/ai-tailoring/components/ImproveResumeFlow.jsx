@@ -1,20 +1,60 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../../components/common/Button';
+import Badge from '../../../components/common/Badge';
 import Loader from '../../../components/feedback/Loader';
 import ErrorMessage from '../../../components/common/ErrorMessage';
 import { improveResume } from '../../ats/api/atsApi';
+
+const CHANGE_TYPE_LABELS = {
+    'keyword-alignment': 'Keyword alignment',
+    clarity: 'Clarity',
+    relevance: 'Relevance',
+    'achievement-framing': 'Achievement framing',
+    'action-verb': 'Action verb improvement',
+    'technical-terminology': 'Technical terminology',
+    'summary-alignment': 'Summary alignment',
+    'skill-alignment': 'Skill alignment',
+};
+
+function confidenceTone(confidence) {
+    if (confidence >= 80) return 'text-success';
+    if (confidence >= 40) return 'text-warning';
+    return 'text-error';
+}
+
+/**
+ * Finds the metadata (reason/jdRequirement/changeTypes/confidence) for one
+ * diffed change from the flat `changes` list the backend returns. Matches
+ * by type+targetId, taking the LAST match (mirrors apply_proposal's
+ * last-write-wins across iterations). A brand-new skills group has no
+ * targetId at proposal time (the id is only generated once applied), so it
+ * matches by category name instead.
+ */
+function findChangeMeta(proposalChanges, change) {
+    if (!proposalChanges) return null;
+    const matches = proposalChanges.filter((c) => {
+        if (change.type === 'summary') return c.type === 'summary';
+        if (change.type === 'experience') return c.type === 'experience' && c.targetId === change.targetId;
+        if (change.type === 'skills-add') return c.type === 'skills' && c.targetId === change.targetId;
+        if (change.type === 'skills-new') return c.type === 'skills' && c.targetId === '' && c.category === change.category;
+        return false;
+    });
+    return matches.length > 0 ? matches[matches.length - 1].meta : null;
+}
 
 /**
  * Diffs the original resume content against the AI-proposed content,
  * producing one entry per field that actually changed. Deliberately only
  * looks at the three kinds of edits the backend's apply_proposal() can ever
  * produce (personal.summary, experience[].description, skills[].items) —
- * every other field is structurally guaranteed untouched.
+ * every other field is structurally guaranteed untouched. `proposalChanges`
+ * (from the API's `changes` array) is attached as `.meta` per entry so the
+ * UI can show why/JD-requirement/change-type/confidence alongside the diff.
  *
- * @returns {Array<{id: string, type: string, label: string, before: any, after: any, targetId?: string, category?: string}>}
+ * @returns {Array<{id: string, type: string, label: string, before: any, after: any, targetId?: string, category?: string, meta: object|null}>}
  */
-function computeDiff(original, proposed) {
+function computeDiff(original, proposed, proposalChanges) {
     const changes = [];
 
     if ((original.personal?.summary || '') !== (proposed.personal?.summary || '')) {
@@ -73,19 +113,27 @@ function computeDiff(original, proposed) {
         }
     }
 
-    return changes;
+    return changes.map((c) => ({ ...c, meta: findChangeMeta(proposalChanges, c) }));
 }
 
-/** Applies only the selected changes onto a fresh deep-clone of the full resume document. */
-function applySelectedChanges(resume, changes, selectedIds) {
+/**
+ * Applies only the selected changes onto a fresh deep-clone of the full
+ * resume document. `editedText` maps a change id -> user-edited override
+ * text (Edit action) for text-type changes (summary/experience); when
+ * present it's used instead of the AI-proposed `after` text, but it's
+ * still only ever written to the same 3 code-enforced fields as before —
+ * editing never widens what a change is allowed to touch.
+ */
+function applySelectedChanges(resume, changes, selectedIds, editedText = {}) {
     const next = structuredClone(resume);
     for (const change of changes) {
         if (!selectedIds.has(change.id)) continue;
+        const override = editedText[change.id];
         if (change.type === 'summary') {
-            next.content.personal.summary = change.after;
+            next.content.personal.summary = override ?? change.after;
         } else if (change.type === 'experience') {
             const item = next.content.experience.find((e) => e.id === change.targetId);
-            if (item) item.description = change.after;
+            if (item) item.description = override ?? change.after;
         } else if (change.type === 'skills-add') {
             const group = next.content.skills.find((g) => g.id === change.targetId);
             if (group) group.items = change.after;
@@ -102,48 +150,101 @@ function scoreTone(score) {
     return 'text-error';
 }
 
-function ChangeCard({ change, checked, onToggle }) {
+const TEXT_CHANGE_TYPES = new Set(['summary', 'experience']);
+
+function ChangeCard({ change, state, onStateChange, editedValue, onEditedValueChange }) {
+    const isEditable = TEXT_CHANGE_TYPES.has(change.type);
+    const meta = change.meta;
+
     return (
-        <label className="flex items-start gap-3 p-4 rounded-lg border border-border bg-bg-main cursor-pointer">
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => onToggle(change.id)}
-                className="mt-1 rounded border-border text-primary focus:ring-primary/30"
-            />
-            <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-text-primary mb-2">{change.label}</p>
-                {change.type === 'skills-new' || change.type === 'skills-add' ? (
-                    <div className="space-y-1.5 text-sm">
-                        {change.type === 'skills-add' && (
-                            <p className="text-text-secondary">
-                                Adding: <span className="font-medium text-text-primary">{change.addedItems.join(', ')}</span>
-                            </p>
-                        )}
-                        {change.type === 'skills-new' && (
-                            <p className="text-text-secondary">
-                                New group with: <span className="font-medium text-text-primary">{change.after.join(', ')}</span>
-                            </p>
-                        )}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary mb-1">Before</p>
-                            <p className="text-text-secondary bg-bg-main rounded-md p-2.5 border border-border whitespace-pre-wrap">
-                                {change.before || <span className="italic">(empty)</span>}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-success mb-1">After</p>
-                            <p className="text-text-primary bg-success/5 rounded-md p-2.5 border border-success/30 whitespace-pre-wrap">
-                                {change.after}
-                            </p>
-                        </div>
-                    </div>
-                )}
+        <div className="p-4 rounded-lg border border-border bg-bg-main space-y-3">
+            <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-text-primary">{change.label}</p>
+                <div className="flex items-center gap-1 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => onStateChange('accepted')}
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'accepted' ? 'bg-success/15 text-success' : 'text-text-secondary hover:bg-bg-card'}`}
+                    >
+                        Accept
+                    </button>
+                    {isEditable && (
+                        <button
+                            type="button"
+                            onClick={() => onStateChange('editing')}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'editing' ? 'bg-primary/15 text-primary' : 'text-text-secondary hover:bg-bg-card'}`}
+                        >
+                            Edit
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => onStateChange('rejected')}
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'rejected' ? 'bg-error/15 text-error' : 'text-text-secondary hover:bg-bg-card'}`}
+                    >
+                        Reject
+                    </button>
+                </div>
             </div>
-        </label>
+
+            {change.type === 'skills-new' || change.type === 'skills-add' ? (
+                <div className="space-y-1.5 text-sm">
+                    {change.type === 'skills-add' && (
+                        <p className="text-text-secondary">
+                            Adding: <span className="font-medium text-text-primary">{change.addedItems.join(', ')}</span>
+                        </p>
+                    )}
+                    {change.type === 'skills-new' && (
+                        <p className="text-text-secondary">
+                            New group with: <span className="font-medium text-text-primary">{change.after.join(', ')}</span>
+                        </p>
+                    )}
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary mb-1">Before</p>
+                        <p className="text-text-secondary bg-bg-main rounded-md p-2.5 border border-border whitespace-pre-wrap">
+                            {change.before || <span className="italic">(empty)</span>}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-success mb-1">After</p>
+                        {state === 'editing' ? (
+                            <textarea
+                                value={editedValue ?? change.after}
+                                onChange={(e) => onEditedValueChange(e.target.value)}
+                                rows={4}
+                                className="w-full text-text-primary bg-card rounded-md p-2.5 border border-primary/40 focus:border-primary focus:outline-none whitespace-pre-wrap text-sm"
+                            />
+                        ) : (
+                            <p className="text-text-primary bg-success/5 rounded-md p-2.5 border border-success/30 whitespace-pre-wrap">
+                                {editedValue ?? change.after}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {meta && (
+                <div className="pt-3 border-t border-border space-y-2 text-sm">
+                    <p className="text-text-secondary"><span className="font-semibold text-text-primary">Why: </span>{meta.reason}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {meta.jdRequirement && (
+                            <span className="text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                Matches: {meta.jdRequirement}
+                            </span>
+                        )}
+                        {meta.changeTypes?.map((t) => (
+                            <Badge key={t} variant="neutral" size="sm">{CHANGE_TYPE_LABELS[t] || t}</Badge>
+                        ))}
+                        <span className={`text-xs font-semibold ml-auto ${confidenceTone(meta.confidence)}`}>
+                            {meta.confidence}% confidence
+                        </span>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -170,7 +271,11 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
     const [error, setError] = useState('');
     const [improveResult, setImproveResult] = useState(null);
     const [changes, setChanges] = useState([]);
-    const [selectedIds, setSelectedIds] = useState(new Set());
+    // Per-change id -> 'accepted' | 'rejected' | 'editing'. Starts fully
+    // accepted (matches the prior "all pre-selected" behavior) so a user
+    // who wants everything can just hit Apply immediately.
+    const [changeStates, setChangeStates] = useState({});
+    const [editedText, setEditedText] = useState({});
 
     useEffect(() => {
         let cancelled = false;
@@ -182,10 +287,11 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
         improveResume({ resumeId, jobDescription, currentAnalysis })
             .then((data) => {
                 if (cancelled) return;
-                const diff = computeDiff(resume.content, data.proposedContent);
+                const diff = computeDiff(resume.content, data.proposedContent, data.changes);
                 setImproveResult(data);
                 setChanges(diff);
-                setSelectedIds(new Set(diff.map((c) => c.id)));
+                setChangeStates(Object.fromEntries(diff.map((c) => [c.id, 'accepted'])));
+                setEditedText({});
                 setStatus('ready');
                 onUsed?.();
             })
@@ -205,18 +311,23 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resumeId]);
 
-    const toggleChange = (id) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
+    const setChangeState = (id, next) => {
+        setChangeStates((prev) => ({ ...prev, [id]: next }));
     };
 
+    const acceptedCount = changes.filter((c) => changeStates[c.id] === 'accepted' || changeStates[c.id] === 'editing').length;
+    const rejectedCount = changes.filter((c) => changeStates[c.id] === 'rejected').length;
+    const pendingCount = changes.length - acceptedCount - rejectedCount;
+
     const toggleAll = () => {
-        setSelectedIds((prev) => (prev.size === changes.length ? new Set() : new Set(changes.map((c) => c.id))));
+        const allAccepted = changes.every((c) => changeStates[c.id] === 'accepted' || changeStates[c.id] === 'editing');
+        setChangeStates(Object.fromEntries(changes.map((c) => [c.id, allAccepted ? 'rejected' : 'accepted'])));
     };
+
+    // A change is "selected" (applied) unless explicitly rejected — editing
+    // still counts as accepted, using the edited text instead of the
+    // AI-proposed one.
+    const selectedIds = new Set(changes.filter((c) => changeStates[c.id] !== 'rejected').map((c) => c.id));
 
     const handleApply = async () => {
         if (selectedIds.size === 0) {
@@ -226,7 +337,7 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
         setStatus('applying');
         setError('');
         try {
-            const updated = applySelectedChanges(resume, changes, selectedIds);
+            const updated = applySelectedChanges(resume, changes, selectedIds, editedText);
             await saveResume(updated);
             setStatus('applied');
         } catch (err) {
@@ -261,12 +372,14 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
                         <div className="bg-soft-primary border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                                    Projected score
+                                    Projected score — if all suggestions are applied
                                 </p>
                                 <p className="text-sm text-text-secondary mt-0.5">
                                     Based on {improveResult.iterations} improvement round
-                                    {improveResult.iterations === 1 ? '' : 's'} — a re-run of the same scoring
-                                    on the draft below, not a guaranteed real-world outcome.
+                                    {improveResult.iterations === 1 ? '' : 's'} with every suggestion accepted —
+                                    not a live number for your current selection below. Run "Check Again" on the
+                                    ATS Checker after saving to get a real recalculated score for what you
+                                    actually applied.
                                 </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -277,6 +390,16 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
                                 </span>
                             </div>
                         </div>
+
+                        {changes.length > 0 && status !== 'applied' && (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
+                                <span className="font-semibold text-text-primary">Tailoring summary</span>
+                                <span>{changes.length} suggestion{changes.length === 1 ? '' : 's'}</span>
+                                <span className="text-success">{acceptedCount} accepted</span>
+                                <span className="text-error">{rejectedCount} rejected</span>
+                                {pendingCount > 0 && <span>{pendingCount} pending</span>}
+                            </div>
+                        )}
 
                         {improveResult.changeNotes?.length > 0 && (
                             <ul className="text-sm text-text-secondary space-y-1 list-disc list-inside">
@@ -307,7 +430,7 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
                                         onClick={toggleAll}
                                         className="text-xs font-semibold text-primary hover:underline"
                                     >
-                                        {selectedIds.size === changes.length ? 'Deselect all' : 'Select all'}
+                                        {selectedIds.size === changes.length ? 'Reject all' : 'Accept all'}
                                     </button>
                                 </div>
                                 <div className="space-y-3">
@@ -315,8 +438,12 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
                                         <ChangeCard
                                             key={change.id}
                                             change={change}
-                                            checked={selectedIds.has(change.id)}
-                                            onToggle={toggleChange}
+                                            state={changeStates[change.id]}
+                                            onStateChange={(next) => setChangeState(change.id, next)}
+                                            editedValue={editedText[change.id]}
+                                            onEditedValueChange={(text) =>
+                                                setEditedText((prev) => ({ ...prev, [change.id]: text }))
+                                            }
                                         />
                                     ))}
                                 </div>

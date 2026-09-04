@@ -1,9 +1,15 @@
 import { fetchApi } from '../../../api/client.js';
 
-export async function checkAts({ resumeId, jobDescription }) {
+/**
+ * @param {{ resumeId?: string, temporaryResumeContent?: object, jobDescription: string }} params
+ *   Exactly one of resumeId (a saved resume) or temporaryResumeContent (a
+ *   CV extracted via uploadCv() but never saved — see ATSCheckerPage.jsx's
+ *   "Upload CV" option) should be provided.
+ */
+export async function checkAts({ resumeId, temporaryResumeContent, jobDescription }) {
     return fetchApi('/ats/check', {
         method: 'POST',
-        body: { resumeId, jobDescription },
+        body: { resumeId, temporaryResumeContent, jobDescription },
     });
 }
 
@@ -27,6 +33,7 @@ export async function getAtsHistory() {
  *   scoreHistory: number[],
  *   finalAnalysis: object,
  *   changeNotes: string[],
+ *   changes: Array<{ type: string, targetId: string, category: string, meta: { reason: string, jdRequirement: string, changeTypes: string[], confidence: number } }>,
  * }>}
  */
 export async function improveResume({ resumeId, jobDescription, currentAnalysis }) {

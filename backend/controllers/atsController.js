@@ -41,17 +41,44 @@ const IMPROVE_DAILY_GLOBAL_LIMIT = parseInt(process.env.IMPROVE_DAILY_GLOBAL_LIM
 const atsCheckDailyQuota = createDailyQuota(ATS_CHECK_DAILY_GLOBAL_LIMIT);
 const improveDailyQuota = createDailyQuota(IMPROVE_DAILY_GLOBAL_LIMIT);
 
+// Never forward a raw DB/PostgREST error to the client — log it for
+// diagnostics and return a clean, generic message instead. Errors thrown
+// by atsService.js's analyzeResume/improveResume are already safe,
+// self-constructed messages (never raw), so this only matters for the
+// resume-lookup/history DB calls in the handlers below.
+function genericServerError(res, error, context) {
+    console.error(`${context}:`, error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+}
+
 export async function checkAts(req, res) {
     let reservedDailySlot = false;
     try {
-        const { resumeId, jobDescription } = req.body;
+        const { resumeId, temporaryResumeContent, jobDescription } = req.body;
 
-        if (!resumeId || !jobDescription || !jobDescription.trim()) {
-            return res.status(400).json({ error: 'resumeId and jobDescription are required' });
+        // Exactly one resume source: a saved resume by id (existing path,
+        // unchanged below) or a temporary CV extracted via POST
+        // /api/resumes/upload but never saved (the ATS-Checker-only upload
+        // path — see ATSCheckerPage.jsx). temporaryResumeContent is trusted
+        // the same way upsertResume already trusts client-supplied resume
+        // `content` for saving a resume — it's the requesting user's own
+        // data, not a reference to anyone else's, so there's no ownership
+        // check to perform on it (nothing is being looked up by id).
+        if ((!resumeId && !temporaryResumeContent) || !jobDescription || !jobDescription.trim()) {
+            return res.status(400).json({ error: 'A resume (or uploaded CV) and jobDescription are required' });
+        }
+        if (resumeId && temporaryResumeContent) {
+            return res.status(400).json({ error: 'Provide either resumeId or temporaryResumeContent, not both' });
         }
 
         // Enforced before touching the resume lookup or Gemini at all —
-        // a capped user should never cost an API call.
+        // a capped user should never cost an API call. A temporary CV
+        // check now counts toward this same lifetime limit as a saved-
+        // resume check (see the history save below, and
+        // templates_migration.sql which makes ats_checks.resume_id
+        // nullable so a temp check can be logged with resume_id = null) —
+        // previously it silently didn't, which meant this cap could be
+        // bypassed entirely by always using the temporary-upload path.
         const checkCount = await atsHistoryService.countChecksForUser(req.supabase, req.user.id);
         if (checkCount >= ATS_CHECK_LIMIT) {
             return res.status(403).json({
@@ -69,19 +96,48 @@ export async function checkAts(req, res) {
         }
         reservedDailySlot = true;
 
-        const resume = await resumeService.getResumeByIdForUser(req.supabase, resumeId, req.user.id);
-        if (!resume) {
-            return res.status(404).json({ error: 'Resume not found' });
+        let resumeContent;
+        if (resumeId) {
+            let resume;
+            try {
+                resume = await resumeService.getResumeByIdForUser(req.supabase, resumeId, req.user.id);
+            } catch (lookupError) {
+                // A malformed (non-UUID) resumeId is a 404, not a 500.
+                if (lookupError.code === '22P02') {
+                    atsCheckDailyQuota.release();
+                    reservedDailySlot = false;
+                    return res.status(404).json({ error: 'Resume not found' });
+                }
+                throw lookupError;
+            }
+            if (!resume) {
+                atsCheckDailyQuota.release();
+                reservedDailySlot = false;
+                return res.status(404).json({ error: 'Resume not found' });
+            }
+            resumeContent = resume.content;
+        } else {
+            resumeContent = temporaryResumeContent;
         }
 
-        const result = await analyzeResume(resume.content, jobDescription);
+        const result = await analyzeResume(resumeContent, jobDescription);
 
         // History is supplementary — a save failure shouldn't break the
         // actual check the user is waiting on, so it's logged, not thrown.
+        // Saved for BOTH paths now (resumeId: null for a temporary CV) so
+        // it counts toward the lifetime cap above — this does NOT persist
+        // the temporary CV's content anywhere; only the check's score/
+        // result and the fact that a check happened are recorded, exactly
+        // as for a saved-resume check. If templates_migration.sql hasn't
+        // been applied yet, resume_id is still NOT NULL in the live DB and
+        // this insert fails for the null-resumeId case specifically — that
+        // failure is caught and logged like any other save failure, so it
+        // degrades to the old behavior (temp checks just aren't counted
+        // yet) rather than breaking the check itself.
         try {
             await atsHistoryService.saveAtsCheck(req.supabase, {
                 userId: req.user.id,
-                resumeId,
+                resumeId: resumeId || null,
                 jobDescription,
                 overallScore: result.overallScore,
                 resultJson: result,
@@ -101,7 +157,7 @@ export async function checkAts(req, res) {
         if (error.code === 'ATS_SERVICE_UNAVAILABLE') {
             return res.status(503).json({ error: error.message, code: error.code });
         }
-        res.status(500).json({ error: error.message });
+        genericServerError(res, error, 'ATS request failed');
     }
 }
 
@@ -139,8 +195,20 @@ export async function improveResumeHandler(req, res) {
         }
         reservedDailySlot = true;
 
-        const resume = await resumeService.getResumeByIdForUser(req.supabase, resumeId, req.user.id);
+        let resume;
+        try {
+            resume = await resumeService.getResumeByIdForUser(req.supabase, resumeId, req.user.id);
+        } catch (lookupError) {
+            if (lookupError.code === '22P02') {
+                improveDailyQuota.release();
+                reservedDailySlot = false;
+                return res.status(404).json({ error: 'Resume not found' });
+            }
+            throw lookupError;
+        }
         if (!resume) {
+            improveDailyQuota.release();
+            reservedDailySlot = false;
             return res.status(404).json({ error: 'Resume not found' });
         }
 
@@ -169,7 +237,7 @@ export async function improveResumeHandler(req, res) {
         if (error.code === 'ATS_SERVICE_UNAVAILABLE') {
             return res.status(503).json({ error: error.message, code: error.code });
         }
-        res.status(500).json({ error: error.message });
+        genericServerError(res, error, 'ATS request failed');
     }
 }
 
@@ -182,7 +250,7 @@ export async function getImproveLimit(req, res) {
             dailyGlobalRemaining: improveDailyQuota.remaining(),
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        genericServerError(res, error, 'Failed to fetch improve limit');
     }
 }
 
@@ -199,7 +267,7 @@ export async function getHistory(req, res) {
             dailyGlobalRemaining: atsCheckDailyQuota.remaining(),
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        genericServerError(res, error, 'Failed to fetch ATS history');
     }
 }
 
@@ -221,6 +289,9 @@ export async function getHistoryItem(req, res) {
         }
         res.status(200).json(item);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        if (error.code === '22P02') {
+            return res.status(404).json({ error: 'History item not found' });
+        }
+        genericServerError(res, error, 'Failed to fetch history item');
     }
 }

@@ -7,6 +7,14 @@ function fromDbRow(row) {
         themeColor: row.theme_color,
         updatedAt: row.updated_at,
         content: row.content,
+        // Provenance only — which "Other" templates row (if any) this
+        // resume was imported from. Never affects which React component
+        // renders the resume; that's still templateId above, since only
+        // classic/modern/minimal actually have renderers (see
+        // ResumeCanvas.jsx's TEMPLATE_COMPONENTS). undefined on rows saved
+        // before this column existed, or before templates_migration.sql
+        // has been applied — see the fallback in upsertResume below.
+        importedTemplateId: row.imported_template_id ?? null,
     };
 }
 
@@ -60,11 +68,25 @@ export async function getResumeByIdForUser(client, id, userId) {
 }
 
 export async function upsertResume(client, resume, userId) {
-    const { data, error } = await client
-        .from('resumes')
-        .upsert(toDbRow(resume, userId))
-        .select()
-        .single();
+    const row = toDbRow(resume, userId);
+    // Only sent when the caller actually has one (e.g. saving a resume
+    // detected as an "Other" template on import) — never required, so a
+    // normal resume save is completely unaffected either way.
+    if (resume.importedTemplateId) {
+        row.imported_template_id = resume.importedTemplateId;
+    }
+
+    let { data, error } = await client.from('resumes').upsert(row).select().single();
+
+    // PGRST204: PostgREST can't find this column in its schema cache —
+    // templates_migration.sql (which adds it) hasn't been applied to this
+    // database yet. Retry without it rather than failing the save
+    // outright — this column is provenance-only, never required for a
+    // resume to save/load/render correctly.
+    if (error?.code === 'PGRST204' && 'imported_template_id' in row) {
+        delete row.imported_template_id;
+        ({ data, error } = await client.from('resumes').upsert(row).select().single());
+    }
 
     if (error) throw error;
     return fromDbRow(data);

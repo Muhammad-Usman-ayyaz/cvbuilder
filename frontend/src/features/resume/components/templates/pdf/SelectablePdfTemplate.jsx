@@ -158,8 +158,20 @@ export const ResumePdfDocument = ({ resume }) => {
         getLinkLabel(personal.portfolio) ? { text: getLinkLabel(personal.portfolio), href: normalizeUrl(getLinkUrl(personal.portfolio)) } : null,
     ].filter(Boolean);
 
+    // The `subject` field becomes this PDF's Info-dictionary Subject —
+    // read back by backend/services/templateFingerprint.js's
+    // detectSelfExportedTemplate if this exact PDF is ever re-uploaded to
+    // the CV-upload feature. It's the one deterministic, non-guessed
+    // signal that pipeline has for "this document was rendered with one
+    // of our own built-in templates" — see templateService.js's module
+    // docstring for why nothing else in that pipeline can make that call
+    // reliably for a document authored outside this app.
     return (
-        <Document title={resume?.title || 'Resume'}>
+        <Document
+            title={resume?.title || 'Resume'}
+            creator="CVBuilder"
+            subject={`cvbuilder-template:${resume?.templateId || 'classic'}`}
+        >
             <Page size="A4" style={styles.page}>
                 {/* Header */}
                 <View style={styles.header}>

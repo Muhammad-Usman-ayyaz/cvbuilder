@@ -21,6 +21,7 @@ import ProfilePage from '../features/profile/pages/ProfilePage';
 // App features pages
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import MyResumesPage from '../features/resume/pages/MyResumesPage';
+import UploadCvPage from '../features/resume/pages/UploadCvPage';
 import ResumeStudioPage from '../features/resume/pages/ResumeStudioPage';
 import TemplateGalleryPage from '../features/templates/pages/TemplateGalleryPage';
 import ATSCheckerPage from '../features/ats/pages/ATSCheckerPage';
@@ -51,6 +52,7 @@ function App() {
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/my-resumes" element={<MyResumesPage />} />
+                <Route path="/upload-cv" element={<UploadCvPage />} />
                 <Route path="/resume-builder" element={<TemplateGalleryPage />} />
                 <Route path="/templates" element={<TemplateGalleryPage />} />
                 <Route path="/ats-checker" element={<ATSCheckerPage />} />

@@ -6,22 +6,84 @@ instead of being free text that has to be parsed out with regex.
 
 import copy
 import json
+import logging
 import os
+import time
 import uuid
 
+import httpx
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 from pydantic import ValidationError
 
 from models import (
     AnalyzeRequest,
     AtsAnalysisResult,
+    CHANGE_TYPES,
+    ExtractedResume,
     ImprovementProposal,
     ImproveRequest,
     ImproveResult,
+    ProposedChange,
 )
 
+logger = logging.getLogger("ats-service")
+
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+
+# Google's flash-tier models frequently go 503 "high demand" independently
+# of each other (observed: gemini-3.6-flash and gemini-3.5-flash both down
+# for hours while gemini-3.1-flash-lite / gemini-3-flash-preview stayed up).
+# Falling back through this list keeps the service up across those blips
+# instead of hard-failing every request until someone notices and edits
+# .env. GEMINI_MODEL is tried first, then these, skipping duplicates.
+FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-flash-latest"]
+FALLBACK_MODELS = list(dict.fromkeys(FALLBACK_MODELS))
+
+
+def _generate_with_fallback(prompt: str, response_schema):
+    """
+    Tries each model in FALLBACK_MODELS in order, moving to the next one on
+    a 503 (server overloaded), a client-side timeout, or a 429 (that
+    specific model's own per-model daily quota is exhausted — Google's free
+    tier tracks GenerateRequestsPerDayPerProjectPerModel *per model*, so
+    gemini-3.6-flash being out of quota says nothing about whether
+    gemini-3.1-flash-lite still has budget left, confirmed directly: the
+    429 response body names the exhausted model explicitly) — any other
+    error (bad request, auth, a quota error with no clear model-specific
+    cause) is real and should surface immediately rather than burning
+    through the whole list.
+    """
+    client = get_client()
+    last_error = None
+    for model in FALLBACK_MODELS:
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=response_schema,
+                ),
+            )
+        except (errors.ServerError, httpx.HTTPError) as e:
+            logger.warning("Gemini model %s unavailable (%s), trying next fallback", model, e)
+            last_error = e
+            time.sleep(1)
+        except errors.ClientError as e:
+            # 499/408: a client-side timeout firing mid-request surfaces as
+            # a "CANCELLED"-style ClientError (the aborted connection reads
+            # as a 4xx from Google's side), not a 503 — still a "this model
+            # didn't respond in time" case that should fail over.
+            # 429: this model's own per-model quota is exhausted, not a
+            # project-wide block — see docstring above.
+            if e.code in (499, 408, 429):
+                logger.warning("Gemini model %s unavailable (%s), trying next fallback", model, e)
+                last_error = e
+                time.sleep(1)
+            else:
+                raise
+    raise last_error
 
 _client = None
 
@@ -37,7 +99,24 @@ def get_client() -> genai.Client:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not set — add it to ats-service/.env")
-        _client = genai.Client(api_key=api_key)
+        # The SDK's default retry policy re-tries a 503 on the SAME model
+        # for ~30s (exponential backoff) before raising — which alone can
+        # exceed the Node backend's request timeout. FALLBACK_MODELS below
+        # already retries across models, so disable the SDK's own retries
+        # (attempts=1) and cap each individual call at 20s so a model that's
+        # slow/hanging under load (not even fast-failing with a 503) can't
+        # stall the whole fallback chain — let a slow or 503'd model fail
+        # over to the next one instead. 20s (not 10s) because /extract's
+        # prompt+schema is heavier than /analyze's — a 10s cap was observed
+        # cutting off calls that were on track to succeed, surfacing as a
+        # Google-side "499 CANCELLED" from the aborted connection.
+        _client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                retry_options=types.HttpRetryOptions(attempts=1),
+                timeout=20_000,
+            ),
+        )
     return _client
 
 
@@ -88,6 +167,28 @@ Because keyword-stuffed, unsubstantiated skills now earn only PARTIAL credit in 
 STEP 4 — warnings:
 Short, plain-language warnings when appropriate — e.g. if the job description failed the validity check (step 0), if the resume is essentially empty (no real experience/education/skills content), or if the job description is too short/thin to meaningfully extract keywords from even though it is a real JD. Return an empty list only if nothing is concerning.
 
+STEP 5 — scoreBreakdown (skip / return all-zero categories with an explanation noting the invalid JD if step 0 failed):
+Produce eight ScoreCategory objects — keywordMatch, skillsAlignment, experienceRelevance, educationAlignment, titleAlignment, formatting, achievements, overallRelevance. For each: a 0-100 score, a short label (e.g. "Strong", "Weak"), a factual explanation grounded in the actual resume/JD text, an evidence list (short quotes/paraphrases of what actually supports the score), a missing list (JD-relevant things this category doesn't find evidence for — phrase every entry as "Not found in the CV" / "Not demonstrated in the CV" / "Could not verify from the submitted resume", NEVER as "you don't have X" or "you lack X" — the CV simply not mentioning something is not proof the candidate lacks it), and a priority (how much fixing this category's gaps would matter for this specific JD). keywordMatch here should be consistent with step 1's score; formatting here should be consistent with step 2's formattingScore.
+
+STEP 6 — requirements:
+List the concrete requirements/qualifications actually stated in the job description (degree, years of experience, specific skills, domain experience, tools, certifications, etc.), and classify each as an JD-required (isPreferred=false) or explicitly optional/"nice to have"/"preferred" (isPreferred=true) per the JD's own language. For each requirement, decide based on the resume:
+   - matched: clearly and directly supported by resume content — include a short evidence quote/paraphrase.
+   - partial: related but incomplete or weak evidence exists (e.g. adjacent technology, shorter duration than asked, listed but not elaborated) — include what evidence does exist and why it's incomplete.
+   - missing: not supported by the resume at all — evidence field must use "Not found in the CV" phrasing, never a claim the candidate lacks it.
+   Preferred/optional requirements go into whichever matched/partial/missing bucket fits AND are also included in the `preferred` list (do not double-classify mandatory requirements as preferred).
+
+STEP 7 — keywords:
+Using the same keywords extracted in step 1, additionally tier them: matched (full+partial credit ones, same as keywordMatch.matched), partial (specifically the PARTIAL-credit-only ones — bare skills-list mentions with no elaboration), missingHighPriority (missing keywords the JD emphasizes heavily — repeated, in the title, or framed as core/required), missingMediumPriority (missing keywords mentioned once or framed as secondary). Do not recommend adding a keyword merely to pad a list — only include genuinely JD-relevant terms.
+
+STEP 8 — contentIssues (evidence-based only — omit entirely, i.e. return an empty list, if the resume's content is genuinely solid):
+Identify real, specific content-quality problems: vague statements, weak/passive action verbs, repetitive wording, bullets lacking specificity, missing measurable outcomes, overly long bullets, irrelevant information, a weak/generic professional summary, unclear responsibilities. For each: issue (what's wrong), evidence (the actual text from the resume that has the problem), whyItMatters (why this hurts the candidate's chances for THIS job), suggestion (a concrete direction for improvement that does NOT invent new facts — e.g. "describe the actual process and measurable outcome if the candidate genuinely has that experience", never a fabricated number/example), priority.
+
+STEP 9 — recommendations (top improvements, ranked by estimated impact on this specific JD match — 3-7 items, fewer if there's genuinely little to recommend):
+Each: priority, issue (what's holding the score back), why (why it matters for this JD), jdRequirements (which specific JD requirements from step 6 this addresses), action (a concrete next step). Recommendations must be honest and non-fabricating: if the action implies adding experience/skills the resume doesn't currently show, phrase it conditionally — "If you have X experience, make it explicit in the relevant section" / "If applicable, add your exposure to X" — never a bare "Add X" that could be read as an instruction to invent it.
+
+STEP 10 — summary:
+strengths (what's genuinely working, grounded in the analysis above), weaknesses (what's genuinely weak, grounded in the analysis above), biggestOpportunity (one sentence naming the single highest-impact fix). Do not state or imply an exact point-value score improvement (e.g. never "+12 points") unless you are certain — prefer qualitative framing ("addressing this would meaningfully improve keyword match").
+
 Respond only with JSON matching the required schema — no prose, no markdown fences.
 
 RESUME CONTENT (JSON):
@@ -99,17 +200,8 @@ JOB DESCRIPTION:
 
 
 def analyze(request: AnalyzeRequest) -> AtsAnalysisResult:
-    client = get_client()
     prompt = build_prompt(request.resumeContent, request.jobDescription)
-
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=AtsAnalysisResult,
-        ),
-    )
+    response = _generate_with_fallback(prompt, AtsAnalysisResult)
 
     raw_text = (response.text or "").strip()
     if not raw_text:
@@ -149,9 +241,15 @@ CURRENT ATS ANALYSIS (what's weak right now):
 - Failed formatting checks: {json.dumps([c.label for c in analysis.formatting.checks if not c.passed])}
 - Warnings: {json.dumps(analysis.warnings)}
 
+EVERY proposed change (summaryUpdate, each experienceUpdates entry, each skillsToAdd entry) MUST carry a `meta` object:
+- reason: 1-2 sentences explaining WHY this specific change helps, in plain language, referencing what it surfaces or clarifies.
+- jdRequirement: the specific job-description requirement/keyword this change addresses (short phrase, e.g. "Process optimization"). Empty string if the change is a general clarity improvement not tied to one specific JD requirement.
+- changeTypes: one or more of exactly these values: {json.dumps(CHANGE_TYPES)}.
+- confidence: 0-100 — how confident you are that this change is supported by EXISTING evidence already in the resume and genuinely relevant to the JD. This is NOT about how good the writing sounds. High confidence (80-100): the resume already explicitly states the fact/skill being surfaced and the JD explicitly asks for it. Medium (40-79): the resume implies it or the JD relevance is indirect. Low (0-39): weak textual support — prefer NOT proposing the change at all rather than proposing a low-confidence one; only include a low-confidence change if you have no better option and clearly flag it as such via the reason text.
+
 YOUR TASK — propose edits limited to exactly these three kinds, each optional:
 
-1. summary: A rewritten Professional Summary that better surfaces the candidate's REAL, already-stated experience relevant to this job description (e.g. weaving in missing keywords the candidate's actual background already supports). Leave as an empty string "" if the current summary needs no change or there's nothing truthful to add.
+1. summaryUpdate: A rewritten Professional Summary that better surfaces the candidate's REAL, already-stated experience relevant to this job description (e.g. weaving in missing keywords the candidate's actual background already supports). Set to null/omit if the current summary needs no change or there's nothing truthful to add.
 
 2. experienceUpdates: For experience entries where the description is thin, generic, or could better surface real relevant work, propose a rewritten description. You are given each entry's exact id below — use it exactly, and only include entries you are actually changing:
 {json.dumps(experience_ids)}
@@ -168,17 +266,8 @@ Respond only with JSON matching the required schema — no prose, no markdown fe
 
 
 def propose_improvement(resume_content: dict, job_description: str, analysis: AtsAnalysisResult) -> ImprovementProposal:
-    client = get_client()
     prompt = build_improve_prompt(resume_content, job_description, analysis)
-
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=ImprovementProposal,
-        ),
-    )
+    response = _generate_with_fallback(prompt, ImprovementProposal)
 
     if response.parsed is None:
         raise ValueError("Gemini response did not match the expected schema")
@@ -196,8 +285,8 @@ def apply_proposal(resume_content: dict, proposal: ImprovementProposal) -> dict:
     """
     next_content = copy.deepcopy(resume_content)
 
-    if proposal.summary and proposal.summary.strip():
-        next_content.setdefault("personal", {})["summary"] = proposal.summary.strip()
+    if proposal.summaryUpdate and proposal.summaryUpdate.text.strip():
+        next_content.setdefault("personal", {})["summary"] = proposal.summaryUpdate.text.strip()
 
     experience_by_id = {
         item.get("id"): item for item in next_content.get("experience", []) if isinstance(item, dict)
@@ -259,6 +348,7 @@ def improve_and_rescore(request: ImproveRequest) -> ImproveResult:
 
     score_history = [analysis.overallScore]
     all_notes: list[str] = []
+    all_changes: list[ProposedChange] = []
     iterations = 0
 
     while iterations < request.maxIterations and analysis.overallScore < request.targetScore:
@@ -267,6 +357,7 @@ def improve_and_rescore(request: ImproveRequest) -> ImproveResult:
         analysis = analyze(AnalyzeRequest(resumeContent=content, jobDescription=request.jobDescription))
         score_history.append(analysis.overallScore)
         all_notes.extend(proposal.changeNotes)
+        all_changes.extend(_flatten_proposal_changes(proposal))
         iterations += 1
 
     return ImproveResult(
@@ -278,4 +369,83 @@ def improve_and_rescore(request: ImproveRequest) -> ImproveResult:
         scoreHistory=score_history,
         finalAnalysis=analysis,
         changeNotes=all_notes,
+        changes=all_changes,
     )
+
+
+def _flatten_proposal_changes(proposal: ImprovementProposal) -> list[ProposedChange]:
+    """
+    Converts one iteration's ImprovementProposal into the flat, explainable
+    ProposedChange records the frontend renders alongside its own
+    independently-computed before/after diff. If the same field is touched
+    across multiple iterations, later entries are appended after earlier
+    ones — the frontend takes the LAST matching entry per type+targetId,
+    matching apply_proposal's own last-write-wins behavior.
+    """
+    changes: list[ProposedChange] = []
+    if proposal.summaryUpdate and proposal.summaryUpdate.text.strip():
+        changes.append(ProposedChange(type="summary", meta=proposal.summaryUpdate.meta))
+    for update in proposal.experienceUpdates:
+        if update.description.strip():
+            changes.append(ProposedChange(type="experience", targetId=update.id, meta=update.meta))
+    for addition in proposal.skillsToAdd:
+        if any(s.strip() for s in addition.itemsToAdd):
+            changes.append(
+                ProposedChange(type="skills", targetId=addition.groupId, category=addition.category, meta=addition.meta)
+            )
+    return changes
+
+
+def build_extract_prompt(text: str) -> str:
+    return f"""You are extracting structured data from a CV/resume's plain text so it can be imported into a resume-builder application. The text below was mechanically extracted from a PDF or DOCX file, so formatting (line breaks, spacing, bullet characters) may be imperfect — read past that and focus on the actual content.
+
+ABSOLUTE RULE — NO INVENTION:
+You are a transcriber, not a writer. Every value you output MUST be literally present in (or an unambiguous direct restatement of) the source text below. You must NEVER:
+- invent, guess, or infer a company name, job title, date, degree, university, technology, achievement, metric, or certification that is not explicitly stated in the text
+- fill in a plausible-sounding value for a field the text doesn't clearly state
+- "improve", rephrase for impact, or embellish any description — copy/lightly clean up the candidate's own wording, don't rewrite it
+- merge or split entries in a way not supported by the text (e.g. don't invent two jobs from one, or combine two distinct jobs into one)
+If a field is not clearly present in the text, leave it as an empty string "" (or an empty list for array fields, or false for booleans) — an honest empty field is always correct; a confident-looking guess is always wrong. This is more important than completeness.
+
+FIELDS TO EXTRACT:
+
+personal: fullName, email, phone, location, linkedin (URL or handle), github (URL or handle), portfolio (URL), summary (a professional summary/objective paragraph ONLY if one is literally written in the CV — do not compose one from other sections if it's absent).
+
+experience: one entry per job, each with company, role (job title), location, startDate, endDate (use the literal text as written, e.g. "Jan 2020", "2020-01", "2022"; if the entry says "Present"/"Current"/"Ongoing", set endDate to "" and current to true), description (the job's bullet points/duties, joined as one block of text — do not summarize or shorten them).
+
+education: one entry per school/qualification, each with degree, school (institution name), location, startDate, endDate, description (only if the CV states something extra like honors, GPA, or relevant coursework — otherwise "").
+
+projects: one entry per project mentioned, each with name, techStack (technologies/tools literally named for that project, comma-separated), link (a URL if one is given), description.
+
+skills: group skills the way the CV groups them if it has explicit categories (e.g. "Languages", "Frameworks", "Tools"); if the CV just lists skills with no categories, put them all in one group with category "Skills". Each item in `items` must be a skill/tool/technology literally named in the text — do not add related skills that aren't mentioned.
+
+certifications: one entry per certification/license mentioned, each with name, issuer (the organization that issued it, if stated), date (if stated).
+
+If the text doesn't look like a CV/resume at all (e.g. it's some other kind of document, or extraction produced garbage), still return the schema with every field empty — do not fabricate a resume from nothing.
+
+Respond only with JSON matching the required schema — no prose, no markdown fences.
+
+EXTRACTED CV TEXT:
+{text}
+"""
+
+
+def extract_resume(text: str) -> ExtractedResume:
+    """
+    Single Gemini call (via the same fallback chain as everything else in
+    this module) that turns plain CV text into ExtractedResume — the CV
+    upload feature's only AI call, deliberately kept to exactly one call
+    per upload to stay within the project's shared free-tier daily budget
+    (see ATS_CHECK/IMPROVE/UPLOAD *_DAILY_GLOBAL_LIMIT in atsController.js
+    on the Node side, which is what actually enforces the budget; this
+    function has no retry-on-failure beyond the model fallback already
+    built into _generate_with_fallback, so a bad Gemini response surfaces
+    immediately as an error rather than silently burning extra calls).
+    """
+    prompt = build_extract_prompt(text)
+    response = _generate_with_fallback(prompt, ExtractedResume)
+
+    if response.parsed is None:
+        raise ValueError("Gemini response did not match the expected resume schema")
+
+    return response.parsed

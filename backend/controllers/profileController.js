@@ -1,5 +1,12 @@
 import * as profileService from '../services/profileService.js';
 
+// Never forward a raw DB/PostgREST error to the client — log it for
+// diagnostics and return a clean, generic message instead.
+function genericServerError(res, error, context) {
+    console.error(`${context}:`, error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+}
+
 export async function getProfile(req, res) {
     try {
         const profile = await profileService.getProfile(req.supabase, req.user.id);
@@ -9,7 +16,7 @@ export async function getProfile(req, res) {
         }
         res.status(200).json(profile);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        genericServerError(res, error, 'Failed to fetch profile');
     }
 }
 
@@ -19,6 +26,6 @@ export async function upsertProfile(req, res) {
         const profile = await profileService.upsertProfile(req.supabase, profileData, req.user.id);
         res.status(200).json(profile);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        genericServerError(res, error, 'Failed to save profile');
     }
 }

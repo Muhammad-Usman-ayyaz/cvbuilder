@@ -4,11 +4,19 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from google.genai import errors as genai_errors
 
 load_dotenv()
 
-from models import AnalyzeRequest, AtsAnalysisResult, ImproveRequest, ImproveResult  # noqa: E402
-from gemini_analyzer import analyze, improve_and_rescore  # noqa: E402
+from models import (  # noqa: E402
+    AnalyzeRequest,
+    AtsAnalysisResult,
+    ExtractedResume,
+    ExtractRequest,
+    ImproveRequest,
+    ImproveResult,
+)
+from gemini_analyzer import analyze, extract_resume, improve_and_rescore  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ats-service")
@@ -47,6 +55,27 @@ def improve_resume(req: ImproveRequest):
     except Exception as e:
         logger.error("ATS improvement failed: %s", e)
         raise HTTPException(status_code=502, detail="ATS improvement failed") from e
+
+
+@app.post("/extract", response_model=ExtractedResume)
+def extract_cv(req: ExtractRequest):
+    try:
+        return extract_resume(req.text)
+    except genai_errors.ClientError as e:
+        # 429 here means every model in the fallback chain (see
+        # gemini_analyzer.FALLBACK_MODELS) is out of its per-model daily
+        # quota, not just the primary one — a distinct, real "AI budget is
+        # exhausted for today" condition the Node backend/frontend should
+        # show differently than a generic extraction failure. Never log
+        # req.text — this is the uploaded CV's own content, same user-data
+        # rule as /analyze and /improve above.
+        logger.error("CV extraction failed: %s", e)
+        if e.code == 429:
+            raise HTTPException(status_code=429, detail="Gemini quota exhausted") from e
+        raise HTTPException(status_code=502, detail="CV extraction failed") from e
+    except Exception as e:
+        logger.error("CV extraction failed: %s", e)
+        raise HTTPException(status_code=502, detail="CV extraction failed") from e
 
 
 if __name__ == "__main__":
