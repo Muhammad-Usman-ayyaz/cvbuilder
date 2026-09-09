@@ -77,6 +77,14 @@ export async function upsertResume(req, res) {
         const resume = await resumeService.upsertResume(req.supabase, req.body, req.user.id);
         res.status(200).json(resume);
     } catch (error) {
+        // 42501 = RLS policy violation — this fires when the request body's
+        // `id` already belongs to another user's resume (RLS's own USING
+        // clause is what actually stops the write; nothing was modified).
+        // That's a permissions problem, not a server malfunction, so it
+        // should read as 403, not a generic 500.
+        if (error.code === '42501') {
+            return res.status(403).json({ error: 'You do not have permission to modify this resume.' });
+        }
         genericServerError(res, error, 'Failed to save resume');
     }
 }

@@ -143,7 +143,29 @@ export async function checkAts(req, res) {
                 resultJson: result,
             });
         } catch (saveError) {
-            console.error('Failed to save ATS check history:', saveError.message);
+            // A save failure here means this check silently does NOT count
+            // toward ATS_CHECK_LIMIT (the count is derived from persisted
+            // rows) — that's an accepted, EXPECTED degradation only for the
+            // specific case of a temporary-CV check on a database that
+            // hasn't had templates_migration.sql applied yet (23502 = not-
+            // null violation on resume_id, and resumeId is null here only
+            // for the temporary-CV path). Any OTHER save failure — on a
+            // saved-resume check, or a different error code — is NOT
+            // expected and deserves a distinctly loud log so it doesn't get
+            // lost among the expected ones, since it represents the same
+            // quota-bypass risk on a database where it should be avoidable.
+            const isExpectedPreMigrationGap = saveError.code === '23502' && !resumeId;
+            if (isExpectedPreMigrationGap) {
+                console.error(
+                    '[EXPECTED — templates_migration.sql not yet applied] Temporary ATS check succeeded but was NOT counted toward the lifetime limit (ats_checks.resume_id is still NOT NULL):',
+                    saveError.message
+                );
+            } else {
+                console.error(
+                    'UNEXPECTED: failed to save ATS check history — this check will NOT count toward the lifetime limit:',
+                    saveError
+                );
+            }
         }
 
         res.status(200).json(result);
