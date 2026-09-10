@@ -42,6 +42,10 @@ const IMPROVE_DAILY_GLOBAL_LIMIT = parseInt(process.env.IMPROVE_DAILY_GLOBAL_LIM
 const atsCheckDailyQuota = createDailyQuota(ATS_CHECK_DAILY_GLOBAL_LIMIT);
 const improveDailyQuota = createDailyQuota(IMPROVE_DAILY_GLOBAL_LIMIT);
 
+// In-flight reservation tracking per user to prevent concurrent race-condition quota bypass
+const userInFlightChecks = new Map();
+const userInFlightImproves = new Map();
+
 // Never forward a raw DB/PostgREST error to the client — log it for
 // diagnostics and return a clean, generic message instead. Errors thrown
 // by atsService.js's analyzeResume/improveResume are already safe,
@@ -54,6 +58,9 @@ function genericServerError(res, error, context) {
 
 export async function checkAts(req, res) {
     let reservedDailySlot = false;
+    let reservedUserSlot = false;
+    let dbReservationId = null;
+    let reservationCompleted = false;
     try {
         const { resumeId, temporaryResumeContent, jobDescription } = req.body;
 
@@ -75,19 +82,33 @@ export async function checkAts(req, res) {
             return res.status(400).json({ error: 'Provide either resumeId or temporaryResumeContent, not both' });
         }
 
-        // Enforced before touching the resume lookup or Gemini at all —
-        // a capped user should never cost an API call. A temporary CV
-        // check now counts toward this same lifetime limit as a saved-
-        // resume check (see the history save below, and
-        // templates_migration.sql which makes ats_checks.resume_id
-        // nullable so a temp check can be logged with resume_id = null) —
-        // previously it silently didn't, which meant this cap could be
-        // bypassed entirely by always using the temporary-upload path.
+        // 1. In-process fast rejection for concurrent bursts within same process
+        const inFlight = userInFlightChecks.get(req.user.id) || 0;
         const checkCount = await atsHistoryService.countChecksForUser(req.supabase, req.user.id);
-        if (checkCount >= ATS_CHECK_LIMIT) {
+        if (checkCount + inFlight >= ATS_CHECK_LIMIT) {
             return res.status(403).json({
                 error: `You've used all ${ATS_CHECK_LIMIT} of your ATS checks.`,
             });
+        }
+        userInFlightChecks.set(req.user.id, inFlight + 1);
+        reservedUserSlot = true;
+
+        // 2. Database atomic reservation for cross-process concurrency safety
+        try {
+            const reservation = await atsHistoryService.reserveCheckSlot(req.supabase, {
+                userId: req.user.id,
+                resumeId: resumeId || null,
+                jobDescription,
+                limit: ATS_CHECK_LIMIT,
+            });
+            if (!reservation.reserved) {
+                return res.status(403).json({
+                    error: `You've used all ${ATS_CHECK_LIMIT} of your ATS checks.`,
+                });
+            }
+            dbReservationId = reservation.reservationId;
+        } catch (resError) {
+            console.warn('DB check reservation warning (fallback to in-memory guard):', resError.message);
         }
 
         // Project-wide daily throttle — distinct from the per-user lifetime
@@ -126,49 +147,28 @@ export async function checkAts(req, res) {
 
         const result = await analyzeResume(resumeContent, jobDescription);
 
-        // History is supplementary — a save failure shouldn't break the
-        // actual check the user is waiting on, so it's logged, not thrown.
-        // Saved for BOTH paths now (resumeId: null for a temporary CV) so
-        // it counts toward the lifetime cap above — this does NOT persist
-        // the temporary CV's content anywhere; only the check's score/
-        // result and the fact that a check happened are recorded, exactly
-        // as for a saved-resume check. If templates_migration.sql hasn't
-        // been applied yet, resume_id is still NOT NULL in the live DB and
-        // this insert fails for the null-resumeId case specifically — that
-        // failure is caught and logged like any other save failure, so it
-        // degrades to the old behavior (temp checks just aren't counted
-        // yet) rather than breaking the check itself.
-        try {
-            await atsHistoryService.saveAtsCheck(req.supabase, {
-                userId: req.user.id,
-                resumeId: resumeId || null,
-                jobDescription,
-                overallScore: result.overallScore,
-                resultJson: result,
-            });
-        } catch (saveError) {
-            // A save failure here means this check silently does NOT count
-            // toward ATS_CHECK_LIMIT (the count is derived from persisted
-            // rows) — that's an accepted, EXPECTED degradation only for the
-            // specific case of a temporary-CV check on a database that
-            // hasn't had templates_migration.sql applied yet (23502 = not-
-            // null violation on resume_id, and resumeId is null here only
-            // for the temporary-CV path). Any OTHER save failure — on a
-            // saved-resume check, or a different error code — is NOT
-            // expected and deserves a distinctly loud log so it doesn't get
-            // lost among the expected ones, since it represents the same
-            // quota-bypass risk on a database where it should be avoidable.
-            const isExpectedPreMigrationGap = saveError.code === '23502' && !resumeId;
-            if (isExpectedPreMigrationGap) {
-                console.error(
-                    '[EXPECTED — templates_migration.sql not yet applied] Temporary ATS check succeeded but was NOT counted toward the lifetime limit (ats_checks.resume_id is still NOT NULL):',
-                    saveError.message
-                );
-            } else {
-                console.error(
-                    'UNEXPECTED: failed to save ATS check history — this check will NOT count toward the lifetime limit:',
-                    saveError
-                );
+        // Complete the reservation in database with final score and result
+        if (dbReservationId) {
+            try {
+                await atsHistoryService.completeCheckSlot(req.supabase, dbReservationId, {
+                    overallScore: result.overallScore,
+                    resultJson: result,
+                });
+                reservationCompleted = true;
+            } catch (completeErr) {
+                console.error('Failed to complete check reservation in DB:', completeErr);
+            }
+        } else {
+            try {
+                await atsHistoryService.saveAtsCheck(req.supabase, {
+                    userId: req.user.id,
+                    resumeId: resumeId || null,
+                    jobDescription,
+                    overallScore: result.overallScore,
+                    resultJson: result,
+                });
+            } catch (saveError) {
+                console.error('Failed to save ATS check history:', saveError);
             }
         }
 
@@ -184,17 +184,33 @@ export async function checkAts(req, res) {
             return res.status(503).json({ error: error.message, code: error.code });
         }
         genericServerError(res, error, 'ATS request failed');
+    } finally {
+        if (dbReservationId && !reservationCompleted) {
+            await atsHistoryService.releaseCheckSlot(req.supabase, dbReservationId);
+        }
+        if (reservedUserSlot) {
+            const current = userInFlightChecks.get(req.user.id) || 1;
+            if (current <= 1) {
+                userInFlightChecks.delete(req.user.id);
+            } else {
+                userInFlightChecks.set(req.user.id, current - 1);
+            }
+        }
     }
 }
 
-// Improve results (ImproveResult from the Python service) are never saved
-// to ats_checks — the 1-3 internal rescores per click are an implementation
-// detail, not user-initiated checks, and shouldn't clutter ATS history or
-// the Dashboard's Recent Activity feed. Exactly one row is written to the
-// separate ats_improvements table per completed run, purely to power
+// "Improve This Resume" has its own, separate lifetime-per-user cap from
+// ATS_CHECK_LIMIT — a single click can cost up to 6 Gemini calls (up to 3
+// rounds of propose + rescore), so it would be unfair for one click to
+// silently burn through a big chunk of a user's regular check budget.
+// Usage is logged to ats_improvements (ats_improvements_migration.sql)
+// solely so this cap can be enforced independently of regular checks — see
 // countImprovementsForUser's lifetime cap below.
 export async function improveResumeHandler(req, res) {
     let reservedDailySlot = false;
+    let reservedUserImproveSlot = false;
+    let dbImproveReservationId = null;
+    let improveCompleted = false;
     try {
         const { resumeId, jobDescription, currentAnalysis } = req.body;
 
@@ -205,13 +221,33 @@ export async function improveResumeHandler(req, res) {
             return res.status(404).json({ error: 'Resume not found' });
         }
 
-        // Per-user lifetime cap — enforced before touching the resume
-        // lookup or Gemini at all, same principle as checkAts's own cap.
+        // 1. In-process fast rejection for concurrent bursts
+        const inFlight = userInFlightImproves.get(req.user.id) || 0;
         const improveCount = await atsImprovementService.countImprovementsForUser(req.supabase, req.user.id);
-        if (improveCount >= IMPROVE_LIFETIME_LIMIT) {
+        if (improveCount + inFlight >= IMPROVE_LIFETIME_LIMIT) {
             return res.status(403).json({
                 error: `You've used all ${IMPROVE_LIFETIME_LIMIT} of your resume improvements.`,
             });
+        }
+        userInFlightImproves.set(req.user.id, inFlight + 1);
+        reservedUserImproveSlot = true;
+
+        // 2. Database atomic reservation for cross-process concurrency safety
+        try {
+            const reservation = await atsImprovementService.reserveImprovementSlot(req.supabase, {
+                userId: req.user.id,
+                resumeId,
+                jobDescription,
+                limit: IMPROVE_LIFETIME_LIMIT,
+            });
+            if (!reservation.reserved) {
+                return res.status(403).json({
+                    error: `You've used all ${IMPROVE_LIFETIME_LIMIT} of your resume improvements.`,
+                });
+            }
+            dbImproveReservationId = reservation.reservationId;
+        } catch (resError) {
+            console.warn('DB improve reservation warning (fallback to in-memory guard):', resError.message);
         }
 
         // Project-wide daily throttle — distinct from the per-user lifetime
@@ -243,19 +279,31 @@ export async function improveResumeHandler(req, res) {
 
         const result = await improveResume(resume.content, jobDescription, currentAnalysis ?? null);
 
-        // Usage logging is supplementary — a save failure shouldn't break
-        // the result the user is waiting on, so it's logged, not thrown.
-        try {
-            await atsImprovementService.saveImprovement(req.supabase, {
-                userId: req.user.id,
-                resumeId,
-                jobDescription,
-                initialScore: result.initialScore,
-                finalScore: result.finalScore,
-                iterations: result.iterations,
-            });
-        } catch (saveError) {
-            console.error('Failed to save ATS improvement usage log:', saveError.message);
+        // Complete the reservation in database with final scores
+        if (dbImproveReservationId) {
+            try {
+                await atsImprovementService.completeImprovementSlot(req.supabase, dbImproveReservationId, {
+                    initialScore: result.initialScore,
+                    finalScore: result.finalScore,
+                    iterations: result.iterations,
+                });
+                improveCompleted = true;
+            } catch (completeErr) {
+                console.error('Failed to complete improvement reservation in DB:', completeErr);
+            }
+        } else {
+            try {
+                await atsImprovementService.saveImprovement(req.supabase, {
+                    userId: req.user.id,
+                    resumeId,
+                    jobDescription,
+                    initialScore: result.initialScore,
+                    finalScore: result.finalScore,
+                    iterations: result.iterations,
+                });
+            } catch (saveError) {
+                console.error('Failed to save ATS improvement usage log:', saveError.message);
+            }
         }
 
         res.status(200).json(result);
@@ -267,6 +315,18 @@ export async function improveResumeHandler(req, res) {
             return res.status(503).json({ error: error.message, code: error.code });
         }
         genericServerError(res, error, 'ATS request failed');
+    } finally {
+        if (dbImproveReservationId && !improveCompleted) {
+            await atsImprovementService.releaseImprovementSlot(req.supabase, dbImproveReservationId);
+        }
+        if (reservedUserImproveSlot) {
+            const current = userInFlightImproves.get(req.user.id) || 1;
+            if (current <= 1) {
+                userInFlightImproves.delete(req.user.id);
+            } else {
+                userInFlightImproves.set(req.user.id, current - 1);
+            }
+        }
     }
 }
 

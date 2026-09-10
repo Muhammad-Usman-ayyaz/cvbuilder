@@ -60,13 +60,131 @@ export async function saveImprovement(client, { userId, resumeId, jobDescription
 /**
  * Counts how many Improve runs a user has ever completed — used to enforce
  * the lifetime cap, mirroring atsHistoryService.countChecksForUser.
+ * In-flight reservations (initial_score = -1) are excluded from completed count.
  */
 export async function countImprovementsForUser(client, userId) {
     const { count, error } = await client
         .from('ats_improvements')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .gte('initial_score', 0);
 
     if (error) throw error;
     return count ?? 0;
+}
+
+/**
+ * Atomically reserves an improvement slot in PostgreSQL for a user.
+ * Works across multiple backend processes/instances:
+ * 1. Inserts a pending reservation row (initial_score = -1).
+ * 2. Queries all rows for this user ordered chronologically.
+ * 3. If the reservation's position is >= limit, the row is deleted and reservation fails.
+ * 4. Otherwise, the slot is safely held.
+ */
+export async function reserveImprovementSlot(client, { userId, resumeId, jobDescription, limit }) {
+    const reservationPayload = {
+        user_id: userId,
+        resume_id: resumeId,
+        job_description: jobDescription,
+        initial_score: -1,
+        final_score: -1,
+        iterations: 0,
+    };
+
+    let reservationId = null;
+    const { data, error } = await client
+        .from('ats_improvements')
+        .insert(reservationPayload)
+        .select('id')
+        .single();
+
+    if (error) {
+        const admin = createAdminClient();
+        const { data: adminData, error: adminError } = await admin
+            .from('ats_improvements')
+            .insert(reservationPayload)
+            .select('id')
+            .single();
+        if (adminError) throw adminError;
+        reservationId = adminData.id;
+    } else {
+        reservationId = data.id;
+    }
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: allRows, error: queryError } = await client
+        .from('ats_improvements')
+        .select('id, initial_score, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+
+    if (queryError) {
+        await releaseImprovementSlot(client, reservationId);
+        throw queryError;
+    }
+
+    const validRows = (allRows || []).filter(r =>
+        r.initial_score >= 0 || (r.initial_score === -1 && r.created_at >= fiveMinutesAgo)
+    );
+
+    const rank = validRows.findIndex(r => r.id === reservationId);
+
+    if (rank === -1 || rank >= limit) {
+        await releaseImprovementSlot(client, reservationId);
+        return { reserved: false, reservationId: null };
+    }
+
+    return { reserved: true, reservationId };
+}
+
+/**
+ * Completes an existing improvement reservation slot with final scores.
+ */
+export async function completeImprovementSlot(client, reservationId, { initialScore, finalScore, iterations }) {
+    const updatePayload = {
+        initial_score: initialScore,
+        final_score: finalScore,
+        iterations,
+    };
+
+    const { data, error } = await client
+        .from('ats_improvements')
+        .update(updatePayload)
+        .eq('id', reservationId)
+        .select()
+        .single();
+
+    if (!error) {
+        return fromDbRow(data);
+    }
+
+    const admin = createAdminClient();
+    const { data: adminData, error: adminError } = await admin
+        .from('ats_improvements')
+        .update(updatePayload)
+        .eq('id', reservationId)
+        .select()
+        .single();
+
+    if (adminError) throw adminError;
+    return fromDbRow(adminData);
+}
+
+/**
+ * Releases/deletes an improvement reservation slot if an error occurs or request was aborted.
+ */
+export async function releaseImprovementSlot(client, reservationId) {
+    if (!reservationId) return;
+    try {
+        const { error } = await client
+            .from('ats_improvements')
+            .delete()
+            .eq('id', reservationId);
+        if (error) {
+            const admin = createAdminClient();
+            await admin.from('ats_improvements').delete().eq('id', reservationId);
+        }
+    } catch (err) {
+        console.warn('Failed to release improvement reservation:', reservationId, err.message);
+    }
 }

@@ -65,6 +65,7 @@ export async function getHistoryForUser(client, userId) {
         .from('ats_checks')
         .select('id, resume_id, job_description, overall_score, created_at')
         .eq('user_id', userId)
+        .gte('overall_score', 0)
         .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -78,19 +79,132 @@ export async function getHistoryForUser(client, userId) {
 }
 
 /**
- * Counts how many checks a user has ever run — used to enforce the
- * lifetime check cap. Deliberately a live COUNT against ats_checks rather
- * than a separate counter column, so it stays accurate even if rows are
- * ever viewed/deleted through another path (e.g. a resume delete cascade).
+ * Counts how many completed checks a user has ever run.
+ * In-flight reservations (overall_score = -1) are excluded from the completed count.
  */
 export async function countChecksForUser(client, userId) {
     const { count, error } = await client
         .from('ats_checks')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .gte('overall_score', 0);
 
     if (error) throw error;
     return count ?? 0;
+}
+
+/**
+ * Atomically reserves a check slot in PostgreSQL for a user.
+ * Works across multiple backend processes/instances:
+ * 1. Inserts a pending reservation row (overall_score = -1).
+ * 2. Queries all rows for this user ordered chronologically.
+ * 3. If the reservation's position is >= limit, the row is deleted and reservation fails.
+ * 4. Otherwise, the slot is safely held.
+ */
+export async function reserveCheckSlot(client, { userId, resumeId, jobDescription, limit }) {
+    const reservationPayload = {
+        user_id: userId,
+        resume_id: resumeId || null,
+        job_description: jobDescription,
+        overall_score: -1,
+        result_json: { status: 'reserved', reserved_at: new Date().toISOString() },
+    };
+
+    let reservationId = null;
+    const { data, error } = await client
+        .from('ats_checks')
+        .insert(reservationPayload)
+        .select('id')
+        .single();
+
+    if (error) {
+        const admin = createAdminClient();
+        const { data: adminData, error: adminError } = await admin
+            .from('ats_checks')
+            .insert(reservationPayload)
+            .select('id')
+            .single();
+        if (adminError) throw adminError;
+        reservationId = adminData.id;
+    } else {
+        reservationId = data.id;
+    }
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: allRows, error: queryError } = await client
+        .from('ats_checks')
+        .select('id, overall_score, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+
+    if (queryError) {
+        await releaseCheckSlot(client, reservationId);
+        throw queryError;
+    }
+
+    const validRows = (allRows || []).filter(r =>
+        r.overall_score >= 0 || (r.overall_score === -1 && r.created_at >= fiveMinutesAgo)
+    );
+
+    const rank = validRows.findIndex(r => r.id === reservationId);
+
+    if (rank === -1 || rank >= limit) {
+        await releaseCheckSlot(client, reservationId);
+        return { reserved: false, reservationId: null };
+    }
+
+    return { reserved: true, reservationId };
+}
+
+/**
+ * Completes an existing reservation slot with final results.
+ */
+export async function completeCheckSlot(client, reservationId, { overallScore, resultJson }) {
+    const updatePayload = {
+        overall_score: overallScore,
+        result_json: resultJson,
+    };
+
+    const { data, error } = await client
+        .from('ats_checks')
+        .update(updatePayload)
+        .eq('id', reservationId)
+        .select()
+        .single();
+
+    if (!error) {
+        return fromDbRow(data);
+    }
+
+    const admin = createAdminClient();
+    const { data: adminData, error: adminError } = await admin
+        .from('ats_checks')
+        .update(updatePayload)
+        .eq('id', reservationId)
+        .select()
+        .single();
+
+    if (adminError) throw adminError;
+    return fromDbRow(adminData);
+}
+
+/**
+ * Releases/deletes a reservation slot if an error occurs or request was aborted.
+ */
+export async function releaseCheckSlot(client, reservationId) {
+    if (!reservationId) return;
+    try {
+        const { error } = await client
+            .from('ats_checks')
+            .delete()
+            .eq('id', reservationId);
+        if (error) {
+            const admin = createAdminClient();
+            await admin.from('ats_checks').delete().eq('id', reservationId);
+        }
+    } catch (err) {
+        console.warn('Failed to release check reservation:', reservationId, err.message);
+    }
 }
 
 /**

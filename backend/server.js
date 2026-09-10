@@ -61,6 +61,44 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
+// CSRF Protection & Strict Origin Validation for state-changing requests
+app.use((req, res, next) => {
+    const method = req.method.toUpperCase();
+    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    if (!isStateChanging) return next();
+
+    const origin = req.headers.origin;
+    const referer = req.headers.referer;
+    const hasAuthCookie = Boolean(req.cookies?.access_token);
+    const hasBearer = Boolean(req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
+
+    if (origin) {
+        const normalized = origin.replace(/\/$/, '');
+        if (!allowedOrigins.includes(normalized)) {
+            console.warn(`[CSRF Block] Blocked ${method} ${req.path} from untrusted origin: ${origin}`);
+            return res.status(403).json({ error: 'CSRF verification failed: Untrusted origin' });
+        }
+    } else if (hasAuthCookie && !hasBearer) {
+        // Cookie-authenticated state-changing request with no Origin header
+        if (referer) {
+            try {
+                const refererOrigin = new URL(referer).origin.replace(/\/$/, '');
+                if (!allowedOrigins.includes(refererOrigin)) {
+                    console.warn(`[CSRF Block] Blocked ${method} ${req.path} from untrusted referer: ${referer}`);
+                    return res.status(403).json({ error: 'CSRF verification failed: Untrusted referer' });
+                }
+            } catch {
+                return res.status(403).json({ error: 'CSRF verification failed: Malformed referer' });
+            }
+        } else {
+            console.warn(`[CSRF Block] Blocked cookie-authenticated ${method} ${req.path} with missing Origin/Referer`);
+            return res.status(403).json({ error: 'CSRF verification failed: Missing origin header' });
+        }
+    }
+
+    next();
+});
+
 // Health check
 app.get('/', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Local Backend Server Running' });
