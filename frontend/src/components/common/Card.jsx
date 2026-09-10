@@ -28,7 +28,7 @@ export default function Card({
         {children}
       </div>
       {footer && (
-        <div className="border-t border-border bg-slate-50/50 px-5 py-4 flex items-center justify-end gap-2">
+        <div className="border-t border-border bg-slate-50/50 dark:bg-slate-900/40 px-5 py-4 flex items-center justify-end gap-2">
           {footer}
         </div>
       )}

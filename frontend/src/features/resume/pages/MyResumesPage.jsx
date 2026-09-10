@@ -43,7 +43,7 @@ export default function MyResumesPage() {
         if (cancelled) return;
         const scores = {};
         for (const check of data.history) {
-          if (!(check.resumeId in scores)) {
+          if (check.resumeId && !(check.resumeId in scores)) {
             scores[check.resumeId] = check.overallScore;
           }
         }

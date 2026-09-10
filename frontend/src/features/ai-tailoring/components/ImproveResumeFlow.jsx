@@ -164,7 +164,7 @@ function ChangeCard({ change, state, onStateChange, editedValue, onEditedValueCh
                     <button
                         type="button"
                         onClick={() => onStateChange('accepted')}
-                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'accepted' ? 'bg-success/15 text-success' : 'text-text-secondary hover:bg-bg-card'}`}
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'accepted' ? 'bg-success/15 text-success' : 'text-text-secondary hover:bg-card'}`}
                     >
                         Accept
                     </button>
@@ -172,7 +172,7 @@ function ChangeCard({ change, state, onStateChange, editedValue, onEditedValueCh
                         <button
                             type="button"
                             onClick={() => onStateChange('editing')}
-                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'editing' ? 'bg-primary/15 text-primary' : 'text-text-secondary hover:bg-bg-card'}`}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'editing' ? 'bg-primary/15 text-primary' : 'text-text-secondary hover:bg-card'}`}
                         >
                             Edit
                         </button>
@@ -180,7 +180,7 @@ function ChangeCard({ change, state, onStateChange, editedValue, onEditedValueCh
                     <button
                         type="button"
                         onClick={() => onStateChange('rejected')}
-                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'rejected' ? 'bg-error/15 text-error' : 'text-text-secondary hover:bg-bg-card'}`}
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${state === 'rejected' ? 'bg-error/15 text-error' : 'text-text-secondary hover:bg-card'}`}
                     >
                         Reject
                     </button>
@@ -460,7 +460,7 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
                     <Button type="button" variant="ghost" onClick={() => navigate('/ats-checker')} disabled={status === 'applying'}>
                         Discard
                     </Button>
-                    <Button type="button" variant="primary" onClick={handleApply} isLoading={status === 'applying'}>
+                    <Button type="button" variant="primary" onClick={handleApply} isLoading={status === 'applying'} disabled={status === 'applying'}>
                         Apply {selectedIds.size > 0 ? `${selectedIds.size} ` : ''}Selected Change
                         {selectedIds.size === 1 ? '' : 's'}
                     </Button>
@@ -468,9 +468,17 @@ export default function ImproveResumeFlow({ resumeId, resume, jobDescription, cu
             )}
 
             {status === 'applied' && (
-                <div className="flex items-center justify-end gap-2 p-5 border-t border-border">
-                    <Button type="button" variant="primary" onClick={() => navigate('/my-resumes')}>
+                <div className="flex items-center justify-end gap-3 p-5 border-t border-border">
+                    <Button type="button" variant="secondary" onClick={() => navigate('/my-resumes')}>
                         Done
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => navigate('/ats-checker', { state: { resumeId, jobDescription } })}
+                    >
+                        <span className="material-symbols-outlined text-[18px] mr-1.5">refresh</span>
+                        Check Again in ATS Checker
                     </Button>
                 </div>
             )}

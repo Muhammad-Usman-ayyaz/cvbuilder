@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
         if (!cancelled && data.success) {
           setUser(data.user);
         }
-      } catch (err) {
+      } catch {
         // Not authenticated or session expired
       } finally {
         if (!cancelled) setLoading(false);

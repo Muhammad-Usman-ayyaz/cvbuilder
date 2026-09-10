@@ -57,7 +57,7 @@ export default function TopNavbar({ onMenuClick, title }) {
     () =>
       recentChecks.map((c) => ({
         id: c.id,
-        title: `ATS check on "${resumeTitleById[c.resumeId] || 'a deleted resume'}" — scored ${c.overallScore}%`,
+        title: `ATS check on "${c.resumeId ? (resumeTitleById[c.resumeId] || 'a deleted resume') : 'Uploaded CV'}" — scored ${c.overallScore}%`,
         time: formatUpdatedAt(c.createdAt),
         icon: 'fact_check',
         onClick: () => navigate('/ats-checker', { state: { openHistoryId: c.id } }),

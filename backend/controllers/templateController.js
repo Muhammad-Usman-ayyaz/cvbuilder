@@ -1,4 +1,5 @@
 import * as templateService from '../services/templateService.js';
+import { isValidUuid } from '../utils/uuid.js';
 
 /**
  * GET /api/templates — the user's imported ("Other") templates only. The
@@ -29,6 +30,9 @@ export async function listImportedTemplates(req, res) {
 }
 
 export async function getImportedTemplate(req, res) {
+    if (!isValidUuid(req.params.id)) {
+        return res.status(404).json({ error: 'Template not found' });
+    }
     try {
         const template = await templateService.getImportedTemplateByIdForUser(req.supabase, req.params.id, req.user.id);
         if (!template) {
@@ -36,13 +40,7 @@ export async function getImportedTemplate(req, res) {
         }
         res.status(200).json(template);
     } catch (error) {
-        // A missing table means this specific template certainly doesn't
-        // exist either — 404 is the accurate response, not a 500, and
-        // never leaks the underlying database error either way (this app
-        // has an existing convention elsewhere of forwarding error.message
-        // to the client; this is a new surface, so it doesn't inherit
-        // that here).
-        if (error.code === 'PGRST205') {
+        if (error.code === '22P02' || error.code === 'PGRST205') {
             return res.status(404).json({ error: 'Template not found' });
         }
         res.status(500).json({ error: 'Failed to load this template.' });
@@ -50,12 +48,18 @@ export async function getImportedTemplate(req, res) {
 }
 
 export async function deleteImportedTemplate(req, res) {
+    if (!isValidUuid(req.params.id)) {
+        return res.status(404).json({ error: 'Template not found' });
+    }
     try {
         const success = await templateService.removeImportedTemplateForUser(req.supabase, req.params.id, req.user.id);
-        res.status(200).json({ success });
+        if (!success) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+        res.status(200).json({ success: true });
     } catch (error) {
-        if (error.code === 'PGRST205') {
-            return res.status(200).json({ success: false });
+        if (error.code === '22P02' || error.code === 'PGRST205') {
+            return res.status(404).json({ error: 'Template not found' });
         }
         res.status(500).json({ error: 'Failed to remove this template.' });
     }

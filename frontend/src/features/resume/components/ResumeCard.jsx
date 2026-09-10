@@ -4,7 +4,7 @@ import { formatUpdatedAt } from '../utils/resumeModel';
 import { getTemplateMeta } from '../utils/templateMeta';
 import ResumeCanvas from './studio/ResumeCanvas';
 import { useFitScale } from '../hooks/useFitScale';
-import { fadeSlideUp, cardHover } from '../../../lib/motion';
+import { fadeSlideUp } from '../../../lib/motion';
 
 const A4_WIDTH = 794; // must match ResumeCanvas's A4_WIDTH
 

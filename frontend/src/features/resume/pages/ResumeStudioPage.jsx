@@ -29,9 +29,9 @@ export default function ResumeStudioPage() {
     const { resumeId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const { saveResume } = useResumes();
+    const { saveResume, getResume } = useResumes();
 
-    const [resume, setResume] = useState(null);
+    const [resume, setResume] = useState(() => getResume(resumeId) || null);
     const [notFound, setNotFound] = useState(false);
     const [saveStatus, setSaveStatus] = useState('saved');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -81,6 +81,28 @@ export default function ResumeStudioPage() {
 
     const autosaveTimeoutRef = useRef(null);
     const isFirstRenderRef = useRef(true);
+    const lastSavedSnapshotRef = useRef('');
+    const isSavingRef = useRef(false);
+    const pendingSaveRef = useRef(null);
+    const isMountedRef = useRef(true);
+
+    const serializeSnapshot = (r) => {
+        if (!r) return '';
+        return JSON.stringify({
+            title: r.title || '',
+            templateId: r.templateId || '',
+            themeColor: r.themeColor || '',
+            content: r.content || {}
+        });
+    };
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+            clearTimeout(autosaveTimeoutRef.current);
+        };
+    }, []);
 
     // Initial load
     useEffect(() => {
@@ -93,6 +115,7 @@ export default function ResumeStudioPage() {
                     setNotFound(true);
                     return;
                 }
+                lastSavedSnapshotRef.current = serializeSnapshot(found);
                 setResume(found);
                 isFirstRenderRef.current = true;
             } catch (err) {
@@ -106,26 +129,62 @@ export default function ResumeStudioPage() {
         };
     }, [resumeId]);
 
-    // Debounced autosave
+    // Debounced autosave with snapshot comparison and in-flight queue
     useEffect(() => {
         if (!resume) return;
         if (isFirstRenderRef.current) {
+            lastSavedSnapshotRef.current = serializeSnapshot(resume);
             isFirstRenderRef.current = false;
+            return;
+        }
+
+        const currentSnapshot = serializeSnapshot(resume);
+        if (currentSnapshot === lastSavedSnapshotRef.current) {
+            setSaveStatus('saved');
             return;
         }
 
         setSaveStatus('unsaved');
         clearTimeout(autosaveTimeoutRef.current);
-        autosaveTimeoutRef.current = setTimeout(async () => {
-            setSaveStatus('saving');
-            try {
-                const saved = await saveResume(resume);
-                setResume((prev) => (prev ? { ...prev, updatedAt: saved.updatedAt } : prev));
-                setSaveStatus('saved');
-            } catch (err) {
-                console.error('Autosave failed', err);
-                setSaveStatus('unsaved');
-            }
+        autosaveTimeoutRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return;
+
+            const executeSave = async (resumeToSave) => {
+                const snapshotToSave = serializeSnapshot(resumeToSave);
+                if (snapshotToSave === lastSavedSnapshotRef.current) {
+                    if (isMountedRef.current) setSaveStatus('saved');
+                    return;
+                }
+
+                if (isSavingRef.current) {
+                    pendingSaveRef.current = resumeToSave;
+                    return;
+                }
+
+                isSavingRef.current = true;
+                if (isMountedRef.current) setSaveStatus('saving');
+
+                try {
+                    const saved = await saveResume(resumeToSave);
+                    lastSavedSnapshotRef.current = snapshotToSave;
+                    if (isMountedRef.current) {
+                        setResume((prev) => (prev ? { ...prev, updatedAt: saved.updatedAt } : prev));
+                        setSaveStatus('saved');
+                    }
+                } catch (err) {
+                    console.error('Autosave failed', err);
+                    if (isMountedRef.current) setSaveStatus('unsaved');
+                } finally {
+                    isSavingRef.current = false;
+                    if (pendingSaveRef.current && isMountedRef.current) {
+                        const queued = pendingSaveRef.current;
+                        pendingSaveRef.current = null;
+                        executeSave(queued);
+                    }
+                }
+            };
+
+            executeSave(resume);
         }, AUTOSAVE_DELAY_MS);
 
         return () => clearTimeout(autosaveTimeoutRef.current);

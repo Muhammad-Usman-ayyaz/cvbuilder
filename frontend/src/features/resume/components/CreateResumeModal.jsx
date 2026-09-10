@@ -144,7 +144,7 @@ export default function CreateResumeModal({ isOpen, onClose, onCreate, isSubmitt
                                         aria-label={color.label}
                                         aria-pressed={isActive}
                                         title={color.label}
-                                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${isActive ? 'ring-2 ring-offset-2 ring-primary' : ''
+                                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${isActive ? 'ring-2 ring-offset-2 ring-offset-card ring-primary' : ''
                                             }`}
                                         style={{ backgroundColor: color.value }}
                                     >

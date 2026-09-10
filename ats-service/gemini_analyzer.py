@@ -29,15 +29,11 @@ from models import (
 
 logger = logging.getLogger("ats-service")
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
 # Google's flash-tier models frequently go 503 "high demand" independently
-# of each other (observed: gemini-3.6-flash and gemini-3.5-flash both down
-# for hours while gemini-3.1-flash-lite / gemini-3-flash-preview stayed up).
-# Falling back through this list keeps the service up across those blips
-# instead of hard-failing every request until someone notices and edits
-# .env. GEMINI_MODEL is tried first, then these, skipping duplicates.
-FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-flash-latest"]
+# of each other. Falling back through this list keeps the service up across those blips.
+FALLBACK_MODELS = [GEMINI_MODEL, "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]
 FALLBACK_MODELS = list(dict.fromkeys(FALLBACK_MODELS))
 
 
@@ -114,7 +110,7 @@ def get_client() -> genai.Client:
             api_key=api_key,
             http_options=types.HttpOptions(
                 retry_options=types.HttpRetryOptions(attempts=1),
-                timeout=20_000,
+                timeout=25_000,
             ),
         )
     return _client
@@ -204,8 +200,13 @@ def analyze(request: AnalyzeRequest) -> AtsAnalysisResult:
     response = _generate_with_fallback(prompt, AtsAnalysisResult)
 
     raw_text = (response.text or "").strip()
-    if not raw_text:
-        raise ValueError("Gemini returned an empty response")
+    if response.parsed is None:
+        if raw_text:
+            try:
+                return AtsAnalysisResult.model_validate_json(raw_text)
+            except Exception as e:
+                logger.error("Failed to parse ATS raw text: %s", e)
+        raise ValueError("Gemini returned an empty or unparseable response")
 
     return response.parsed
 
@@ -270,6 +271,12 @@ def propose_improvement(resume_content: dict, job_description: str, analysis: At
     response = _generate_with_fallback(prompt, ImprovementProposal)
 
     if response.parsed is None:
+        raw_text = (response.text or "").strip()
+        if raw_text:
+            try:
+                return ImprovementProposal.model_validate_json(raw_text)
+            except Exception as e:
+                logger.error("Failed to parse improvement proposal JSON: %s", e)
         raise ValueError("Gemini response did not match the expected schema")
 
     return response.parsed
@@ -353,7 +360,11 @@ def improve_and_rescore(request: ImproveRequest) -> ImproveResult:
 
     while iterations < request.maxIterations and analysis.overallScore < request.targetScore:
         proposal = propose_improvement(content, request.jobDescription, analysis)
-        content = apply_proposal(content, proposal)
+        new_content = apply_proposal(content, proposal)
+        if new_content == content:
+            all_notes.extend(proposal.changeNotes)
+            break
+        content = new_content
         analysis = analyze(AnalyzeRequest(resumeContent=content, jobDescription=request.jobDescription))
         score_history.append(analysis.overallScore)
         all_notes.extend(proposal.changeNotes)
@@ -446,6 +457,12 @@ def extract_resume(text: str) -> ExtractedResume:
     response = _generate_with_fallback(prompt, ExtractedResume)
 
     if response.parsed is None:
+        raw_text = (response.text or "").strip()
+        if raw_text:
+            try:
+                return ExtractedResume.model_validate_json(raw_text)
+            except Exception as e:
+                logger.error("Failed to parse extracted resume JSON: %s", e)
         raise ValueError("Gemini response did not match the expected resume schema")
 
     return response.parsed

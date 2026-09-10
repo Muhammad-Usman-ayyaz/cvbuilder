@@ -4,10 +4,6 @@ import Card from '../../../components/common/Card';
 import Input from '../../../components/common/Input';
 import TextArea from '../../../components/common/TextArea';
 import Button from '../../../components/common/Button';
-import PageHeader from '../../../components/layout/PageHeader';
-import EducationForm from '../../resume/components/editor/EducationForm';
-import ExperienceForm from '../../resume/components/editor/ExperienceForm';
-import SkillsForm from '../../resume/components/editor/SkillsForm';
 
 export default function ProfilePage() {
   const { profile, updateProfile, isLoading, completeness, missingItems = [] } = useProfile();
@@ -194,23 +190,6 @@ export default function ProfilePage() {
     }
   };
 
-  const saveEducation = async () => {
-    setIsSavingEducation(true);
-    await updateProfile({ education });
-    setIsSavingEducation(false);
-  };
-
-  const saveExperience = async () => {
-    setIsSavingExperience(true);
-    await updateProfile({ experience });
-    setIsSavingExperience(false);
-  };
-
-  const saveSkills = async () => {
-    setIsSavingSkills(true);
-    await updateProfile({ skills });
-    setIsSavingSkills(false);
-  };
 
   if (isLoading) {
     return (

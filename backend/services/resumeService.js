@@ -69,11 +69,26 @@ export async function getResumeByIdForUser(client, id, userId) {
 
 export async function upsertResume(client, resume, userId) {
     const row = toDbRow(resume, userId);
-    // Only sent when the caller actually has one (e.g. saving a resume
-    // detected as an "Other" template on import) — never required, so a
-    // normal resume save is completely unaffected either way.
     if (resume.importedTemplateId) {
-        row.imported_template_id = resume.importedTemplateId;
+        // Enforce ownership: a user can only associate their own imported template
+        const { data: tmpl, error: tmplErr } = await client
+            .from('templates')
+            .select('id')
+            .eq('id', resume.importedTemplateId)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (tmplErr && tmplErr.code !== 'PGRST205') {
+            throw tmplErr;
+        }
+        if (!tmpl && (!tmplErr || tmplErr.code !== 'PGRST205')) {
+            const err = new Error('You do not have permission to use this template.');
+            err.code = '42501';
+            throw err;
+        }
+        if (tmpl) {
+            row.imported_template_id = resume.importedTemplateId;
+        }
     }
 
     let { data, error } = await client.from('resumes').upsert(row).select().single();

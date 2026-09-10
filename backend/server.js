@@ -16,9 +16,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4000';
 
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-// Whitelist local development origins
+// Whitelist local development and production origins
 const rawOrigins = [
     'http://localhost:4000',
     'http://127.0.0.1:4000',
@@ -26,6 +27,7 @@ const rawOrigins = [
     'http://127.0.0.1:5173',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://aiceevee.vercel.app',
     FRONTEND_URL
 ];
 
@@ -47,7 +49,16 @@ app.use(cors({
     optionsSuccessStatus: 200
 }));
 
-app.use(express.json());
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+});
+
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 // Health check

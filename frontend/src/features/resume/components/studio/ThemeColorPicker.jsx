@@ -25,7 +25,7 @@ export default function ThemeColorPicker({ value, onChange }) {
                         aria-label={color.label}
                         aria-pressed={isActive}
                         title={color.label}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${isActive ? 'ring-2 ring-offset-2 ring-primary scale-105' : 'hover:scale-105'
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${isActive ? 'ring-2 ring-offset-2 ring-offset-card ring-primary scale-105' : 'hover:scale-105'
                             }`}
                         style={{ backgroundColor: color.value }}
                     >
@@ -37,7 +37,7 @@ export default function ThemeColorPicker({ value, onChange }) {
             })}
 
             <label
-                className={`relative w-7 h-7 rounded-full overflow-hidden cursor-pointer flex items-center justify-center border border-border ${isCustom ? 'ring-2 ring-offset-2 ring-primary' : ''
+                className={`relative w-7 h-7 rounded-full overflow-hidden cursor-pointer flex items-center justify-center border border-border ${isCustom ? 'ring-2 ring-offset-2 ring-offset-card ring-primary' : ''
                     }`}
                 title="Custom color"
                 style={isCustom ? { backgroundColor: value } : undefined}

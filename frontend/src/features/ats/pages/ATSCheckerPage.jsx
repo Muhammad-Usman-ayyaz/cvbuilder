@@ -342,6 +342,9 @@ export default function ATSCheckerPage() {
     if (preselectResumeId) {
       setSource('saved');
       setResumeId(preselectResumeId);
+      if (location.state?.jobDescription) {
+        setJobDescription(location.state.jobDescription);
+      }
       navigate(location.pathname, { replace: true, state: {} });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -356,7 +359,7 @@ export default function ATSCheckerPage() {
   const activeResume = resumes.find((r) => r.id === effectiveResumeId);
   const selectedResumeTitle = resultIsTemporary
     ? uploadedCv?.suggestedTitle || 'Uploaded CV'
-    : resumeTitleById[resultResumeId] || '(resume deleted)';
+    : (resultResumeId ? (resumeTitleById[resultResumeId] || '(resume deleted)') : 'Uploaded CV');
 
   return (
     <div>
@@ -693,7 +696,7 @@ export default function ATSCheckerPage() {
                     <Button
                       type="submit"
                       isLoading={isSubmitting}
-                      disabled={isBlocked || (source === 'upload' && !uploadedCv)}
+                      disabled={isBlocked || isSubmitting || (source === 'upload' && !uploadedCv)}
                     >
                       {isSubmitting ? 'Checking...' : 'Check ATS Score'}
                     </Button>

@@ -3,6 +3,7 @@ import * as atsHistoryService from '../services/atsHistoryService.js';
 import * as atsImprovementService from '../services/atsImprovementService.js';
 import { analyzeResume, checkAtsServiceHealth, improveResume } from '../services/atsService.js';
 import { createDailyQuota } from '../services/dailyQuota.js';
+import { isValidUuid } from '../utils/uuid.js';
 
 const ATS_CHECK_LIMIT = parseInt(process.env.ATS_CHECK_LIMIT, 10) || 20;
 
@@ -66,6 +67,9 @@ export async function checkAts(req, res) {
         // check to perform on it (nothing is being looked up by id).
         if ((!resumeId && !temporaryResumeContent) || !jobDescription || !jobDescription.trim()) {
             return res.status(400).json({ error: 'A resume (or uploaded CV) and jobDescription are required' });
+        }
+        if (resumeId && !isValidUuid(resumeId)) {
+            return res.status(404).json({ error: 'Resume not found' });
         }
         if (resumeId && temporaryResumeContent) {
             return res.status(400).json({ error: 'Provide either resumeId or temporaryResumeContent, not both' });
@@ -197,6 +201,9 @@ export async function improveResumeHandler(req, res) {
         if (!resumeId || !jobDescription || !jobDescription.trim()) {
             return res.status(400).json({ error: 'resumeId and jobDescription are required' });
         }
+        if (!isValidUuid(resumeId)) {
+            return res.status(404).json({ error: 'Resume not found' });
+        }
 
         // Per-user lifetime cap — enforced before touching the resume
         // lookup or Gemini at all, same principle as checkAts's own cap.
@@ -304,6 +311,9 @@ export async function getStatus(req, res) {
 }
 
 export async function getHistoryItem(req, res) {
+    if (!isValidUuid(req.params.id)) {
+        return res.status(404).json({ error: 'History item not found' });
+    }
     try {
         const item = await atsHistoryService.getHistoryItemForUser(req.supabase, req.params.id, req.user.id);
         if (!item) {

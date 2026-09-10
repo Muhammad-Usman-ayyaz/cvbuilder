@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import ResumeCanvas from '../../resume/components/studio/ResumeCanvas';
 import { useFitScale } from '../../resume/hooks/useFitScale';
 import { formatUpdatedAt } from '../../resume/utils/resumeModel';
-import { fadeSlideUp, cardHover, cardTap } from '../../../lib/motion';
+import { fadeSlideUp } from '../../../lib/motion';
 
 const A4_WIDTH = 794; // must match ResumeCanvas's A4_WIDTH
 

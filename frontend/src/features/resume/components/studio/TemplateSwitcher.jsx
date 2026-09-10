@@ -104,7 +104,7 @@ export default function TemplateSwitcher({ value, onChange, onToggle }) {
                                             e.stopPropagation();
                                             setPreviewTemplate(template);
                                         }}
-                                        className="p-1.5 rounded-md text-text-secondary hover:text-primary hover:bg-white transition-colors"
+                                        className="p-1.5 rounded-md text-text-secondary hover:text-primary hover:bg-bg-main dark:hover:bg-slate-800 transition-colors"
                                         title="View Full Size"
                                     >
                                         <span className="material-symbols-outlined text-[18px]">visibility</span>

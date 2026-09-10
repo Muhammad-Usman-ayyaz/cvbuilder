@@ -65,7 +65,7 @@ export default function DashboardPage() {
     const checkEvents = checks.map((c) => ({
       key: `check-${c.id}`,
       icon: 'fact_check',
-      label: `Ran ATS check on "${resumeTitleById[c.resumeId] || 'a deleted resume'}" — scored ${c.overallScore}%`,
+      label: `Ran ATS check on "${c.resumeId ? (resumeTitleById[c.resumeId] || 'a deleted resume') : 'Uploaded CV'}" — scored ${c.overallScore}%`,
       timestamp: c.createdAt,
       onClick: () => navigate('/ats-checker', { state: { openHistoryId: c.id } }),
     }));

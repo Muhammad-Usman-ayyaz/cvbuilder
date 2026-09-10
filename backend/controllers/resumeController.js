@@ -4,6 +4,7 @@ import { extractStructuredResume, lowConfidencePersonalFields } from '../service
 import * as templateService from '../services/templateService.js';
 import { ALLOWED_EXTENSIONS } from '../config/upload.js';
 import { createDailyQuota } from '../services/dailyQuota.js';
+import { isValidUuid } from '../utils/uuid.js';
 
 // Upload extraction costs exactly one Gemini call per file (see
 // ats-service/gemini_analyzer.py's extract_resume) — same shared
@@ -55,6 +56,9 @@ export async function getAllResumes(req, res) {
 }
 
 export async function getResume(req, res) {
+    if (!isValidUuid(req.params.id)) {
+        return res.status(404).json({ error: 'Resume not found' });
+    }
     try {
         const resume = await resumeService.getResumeByIdForUser(req.supabase, req.params.id, req.user.id);
         if (!resume) {
@@ -62,8 +66,6 @@ export async function getResume(req, res) {
         }
         res.status(200).json(resume);
     } catch (error) {
-        // A malformed (non-UUID) id is a 404, not a 500 — the resume
-        // certainly doesn't exist under an id that isn't even valid.
         if (error.code === '22P02') {
             return res.status(404).json({ error: 'Resume not found' });
         }
@@ -72,16 +74,14 @@ export async function getResume(req, res) {
 }
 
 export async function upsertResume(req, res) {
+    if (req.body?.id && !isValidUuid(req.body.id)) {
+        return res.status(400).json({ error: 'Invalid resume ID format' });
+    }
     try {
         // req.body should contain the resume object
         const resume = await resumeService.upsertResume(req.supabase, req.body, req.user.id);
         res.status(200).json(resume);
     } catch (error) {
-        // 42501 = RLS policy violation — this fires when the request body's
-        // `id` already belongs to another user's resume (RLS's own USING
-        // clause is what actually stops the write; nothing was modified).
-        // That's a permissions problem, not a server malfunction, so it
-        // should read as 403, not a generic 500.
         if (error.code === '42501') {
             return res.status(403).json({ error: 'You do not have permission to modify this resume.' });
         }
@@ -90,6 +90,9 @@ export async function upsertResume(req, res) {
 }
 
 export async function deleteResume(req, res) {
+    if (!isValidUuid(req.params.id)) {
+        return res.status(200).json({ success: false });
+    }
     try {
         const success = await resumeService.removeResumeForUser(req.supabase, req.params.id, req.user.id);
         res.status(200).json({ success });
