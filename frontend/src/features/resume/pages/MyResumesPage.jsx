@@ -137,7 +137,7 @@ export default function MyResumesPage() {
             <Button
               type="button"
               variant="primary"
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => navigate('/templates')}
               leftIcon={<span className="material-symbols-outlined text-[18px]">add</span>}
             >
               New Resume
@@ -159,7 +159,7 @@ export default function MyResumesPage() {
             title="No resumes yet"
             description="Create your first resume to get started — pick a template, fill in your details, and export a polished PDF in minutes."
             actionLabel="Create Resume"
-            actionOnClick={() => setIsCreateOpen(true)}
+            actionOnClick={() => navigate('/templates')}
           />
         </div>
       ) : (

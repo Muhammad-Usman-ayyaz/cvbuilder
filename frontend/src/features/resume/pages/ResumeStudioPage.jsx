@@ -6,7 +6,8 @@ import { fadeSlideDown } from '../../../lib/motion';
 import { useResumes } from '../hooks/useResumes';
 import Card from '../../../components/common/Card';
 import StudioHeader from '../components/studio/StudioHeader';
-import TemplateSwitcher from '../components/studio/TemplateSwitcher';
+import CompactDesignControl from '../components/studio/CompactDesignControl';
+import ChangeDesignModal from '../components/studio/ChangeDesignModal';
 import ThemeColorPicker from '../components/studio/ThemeColorPicker';
 import ResumeCanvas from '../components/studio/ResumeCanvas';
 import EditorTabs from '../components/editor/EditorTabs';
@@ -34,9 +35,8 @@ export default function ResumeStudioPage() {
     const [resume, setResume] = useState(() => getResume(resumeId) || null);
     const [notFound, setNotFound] = useState(false);
     const [saveStatus, setSaveStatus] = useState('saved');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [isDesignOpen, setIsDesignOpen] = useState(false);
-    const [mobileScale, setMobileScale] = useState(0.38); // Default fit
+    const [isChangeDesignOpen, setIsChangeDesignOpen] = useState(false);
+    const [mobileScale] = useState(0.38); // Default fit
 
     // Transient "fix this" guidance passed from the ATS Checker's "Fix in
     // Studio" link (missing keywords / failed formatting checks for the
@@ -68,16 +68,6 @@ export default function ResumeStudioPage() {
         }, 300);
         return () => clearTimeout(timeoutId);
     }, [atsFix, resume]);
-
-    useEffect(() => {
-        if (!isDesignOpen) {
-            setMobileScale(0.38);
-        } else if (isDropdownOpen) {
-            setMobileScale(0.16);
-        } else {
-            setMobileScale(0.28);
-        }
-    }, [isDesignOpen, isDropdownOpen]);
 
     const autosaveTimeoutRef = useRef(null);
     const isFirstRenderRef = useRef(true);
@@ -302,48 +292,31 @@ export default function ResumeStudioPage() {
                 <div className="w-full lg:w-[46%] xl:w-[42%] flex flex-col lg:overflow-y-auto border-r border-border p-4 lg:p-5 lg:space-y-5 h-full min-h-0 z-10">
                     
                     {/* Fixed top portion on mobile, normal flow on desktop */}
-                    <div className="flex-none flex flex-col">
-                        <Card 
-                            title="Design" 
-                            headerActions={
-                                <button 
-                                    className="p-1 rounded-full hover:bg-bg-main transition-colors text-text-secondary"
-                                    onClick={() => setIsDesignOpen(!isDesignOpen)}
-                                >
-                                    <span className="material-symbols-outlined">
-                                        {isDesignOpen ? 'expand_less' : 'expand_more'}
-                                    </span>
-                                </button>
-                            }
-                            overflowVisible 
-                            className="shrink-0 mb-4 lg:mb-0 z-50"
-                            noPadding={!isDesignOpen}
-                        >
-                            <div className={`space-y-4 p-4 lg:p-5 ${isDesignOpen ? 'block' : 'hidden'}`}>
-                                <div>
-                                    <p className="text-xs font-medium text-text-secondary mb-2">Template</p>
-                                    <TemplateSwitcher
-                                        value={resume.templateId}
-                                        onChange={(nextTemplateId) =>
-                                            setResume((prev) => ({ ...prev, templateId: nextTemplateId }))
-                                        }
-                                        onToggle={(isOpen) => setIsDropdownOpen(isOpen)}
-                                    />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-text-secondary mb-2">Accent Color</p>
-                                    <ThemeColorPicker
-                                        value={resume.themeColor}
-                                        onChange={(nextColor) => setResume((prev) => ({ ...prev, themeColor: nextColor }))}
-                                    />
-                                </div>
+                    <div className="flex-none flex flex-col space-y-3 mb-4">
+                        <CompactDesignControl
+                            templateId={resume.templateId}
+                            onClick={() => setIsChangeDesignOpen(true)}
+                        />
+
+                        <div className="flex items-center justify-between p-3 bg-card border border-border rounded-xl shadow-xs">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px] text-text-secondary">
+                                    palette
+                                </span>
+                                <span className="text-xs font-semibold text-text-primary">
+                                    Accent Color
+                                </span>
                             </div>
-                        </Card>
-                        
+                            <ThemeColorPicker
+                                value={resume.themeColor}
+                                onChange={(nextColor) => setResume((prev) => ({ ...prev, themeColor: nextColor }))}
+                            />
+                        </div>
+
                         {/* Mobile Canvas - Dynamic Scaling */}
                         <div 
-                            className="lg:hidden shrink-0 bg-bg-main border border-border rounded-lg mb-4 overflow-auto transition-all duration-300 relative z-0 print:hidden" 
-                            style={{ height: !isDesignOpen ? '420px' : isDropdownOpen ? '180px' : '310px' }}
+                            className="lg:hidden shrink-0 bg-bg-main border border-border rounded-lg mb-2 overflow-auto transition-all duration-300 relative z-0 print:hidden" 
+                            style={{ height: '360px' }}
                         >
                             <div className="min-w-fit min-h-fit p-2 flex justify-center">
                                 <ResumeCanvas resume={resume} scale={mobileScale} />
@@ -369,6 +342,17 @@ export default function ResumeStudioPage() {
                     <ResumeCanvas resume={resume} scale={0.78} className="print:!scale-100 print:shadow-none" />
                 </div>
             </div>
+
+            {/* Change Resume Design Modal */}
+            <ChangeDesignModal
+                isOpen={isChangeDesignOpen}
+                currentTemplateId={resume.templateId}
+                resume={resume}
+                onClose={() => setIsChangeDesignOpen(false)}
+                onApply={(nextTemplateId) =>
+                    setResume((prev) => ({ ...prev, templateId: nextTemplateId }))
+                }
+            />
         </motion.div>
     );
 }

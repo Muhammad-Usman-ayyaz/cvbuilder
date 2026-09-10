@@ -1,59 +1,51 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import PageHeader from '../../../components/layout/PageHeader';
-import Card from '../../../components/common/Card';
+import { useProfile } from '../../../context/ProfileContext';
+import { useResumes } from '../../resume/hooks/useResumes';
+import { TEMPLATES, getTemplateMeta } from '../../resume/utils/templateMeta';
+import { getTemplatePreviewResume } from '../utils/templatePreviewData';
+import TemplateCard from '../components/TemplateCard';
+import TemplatePreviewModal from '../components/TemplatePreviewModal';
+import { getImportedTemplates, deleteImportedTemplate } from '../api/templateApi';
 import Loader from '../../../components/feedback/Loader';
 import ErrorMessage from '../../../components/common/ErrorMessage';
-import { TEMPLATES } from '../../resume/utils/templateMeta';
-import { getImportedTemplates, deleteImportedTemplate } from '../api/templateApi';
 import { staggerContainer, fadeSlideUp } from '../../../lib/motion';
 
 function formatDate(isoString) {
   if (!isoString) return '';
-  return new Date(isoString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(isoString).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
-function BuiltInTemplateCard({ template }) {
-  return (
-    <motion.div variants={fadeSlideUp} className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-      <div className="aspect-[3/4] bg-bg-main flex items-center justify-center">
-        <span className="material-symbols-outlined text-[40px] text-primary/60">{template.icon}</span>
-      </div>
-      <div className="p-4">
-        <h3 className="text-sm font-semibold text-text-primary">{template.name}</h3>
-        <p className="text-xs text-text-secondary mt-1 leading-relaxed">{template.description}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-/**
- * An imported ("Other") template is a detected document design, not a
- * renderable React template — there is no "Use this template" action
- * here, only view/delete. See backend/services/templateService.js's
- * module docstring for exactly what "imported" means for these records.
- */
 function ImportedTemplateCard({ template, onDelete, isDeleting }) {
   return (
-    <motion.div variants={fadeSlideUp} className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-      <div className="aspect-[3/4] bg-bg-main flex flex-col items-center justify-center gap-2">
-        <span className="material-symbols-outlined text-[40px] text-text-secondary/60">description</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary bg-soft-primary px-2 py-0.5 rounded">
-          Imported
+    <motion.div
+      variants={fadeSlideUp}
+      className="bg-card border border-border rounded-xl overflow-hidden shadow-xs hover:border-primary/40 transition-colors"
+    >
+      <div className="aspect-[3/4] bg-bg-main flex flex-col items-center justify-center gap-2 p-4 text-center">
+        <span className="material-symbols-outlined text-[36px] text-text-secondary/60">description</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary bg-soft-primary px-2.5 py-0.5 rounded-md border border-primary/20">
+          Imported CV
         </span>
       </div>
-      <div className="p-4">
-        <h3 className="text-sm font-semibold text-text-primary truncate">{template.name}</h3>
-        <p className="text-xs text-text-secondary mt-1">
-          Detected from an uploaded CV · {formatDate(template.createdAt)}
+      <div className="p-4 border-t border-border">
+        <h4 className="text-xs font-bold text-text-primary truncate">{template.name}</h4>
+        <p className="text-[11px] text-text-secondary mt-0.5">
+          Detected design · {formatDate(template.createdAt)}
         </p>
         <button
           type="button"
           onClick={() => onDelete(template.id)}
           disabled={isDeleting}
-          className="mt-3 text-xs font-medium text-error hover:underline disabled:opacity-50 disabled:pointer-events-none"
+          className="mt-3 text-xs font-semibold text-error hover:underline disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1"
         >
-          {isDeleting ? 'Removing…' : 'Remove'}
+          <span className="material-symbols-outlined text-[14px]">delete</span>
+          <span>{isDeleting ? 'Removing…' : 'Remove'}</span>
         </button>
       </div>
     </motion.div>
@@ -61,29 +53,38 @@ function ImportedTemplateCard({ template, onDelete, isDeleting }) {
 }
 
 export default function TemplateGalleryPage() {
-  const [importedTemplates, setImportedTemplates] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const { profile } = useProfile();
+  const { createResume } = useResumes();
+
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Imported templates state (preserved)
+  const [importedTemplates, setImportedTemplates] = useState([]);
+  const [isLoadingImported, setIsLoadingImported] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     getImportedTemplates()
       .then((data) => {
-        if (!cancelled) setImportedTemplates(data);
+        if (!cancelled) setImportedTemplates(data || []);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || 'Failed to load imported templates.');
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setIsLoadingImported(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const handleDelete = async (id) => {
+  const handleDeleteImported = async (id) => {
     setDeletingId(id);
     try {
       await deleteImportedTemplate(id);
@@ -95,57 +96,174 @@ export default function TemplateGalleryPage() {
     }
   };
 
+  // Pre-generate realistic preview documents for each built-in template
+  const previewResumes = useMemo(() => {
+    const map = {};
+    for (const t of TEMPLATES) {
+      map[t.id] = getTemplatePreviewResume(t.id, profile);
+    }
+    return map;
+  }, [profile]);
+
+  const filteredTemplates = useMemo(() => {
+    if (activeFilter === 'all') return TEMPLATES;
+    return TEMPLATES.filter((t) => t.id === activeFilter);
+  }, [activeFilter]);
+
+  const handleSelectTemplate = async (templateId) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const templateMeta = getTemplateMeta(templateId);
+      const userDisplayName = profile?.full_name || profile?.fullName;
+      const defaultTitle = userDisplayName
+        ? `${userDisplayName.split(' ')[0]}'s ${templateMeta.name} Resume`
+        : `${templateMeta.name} Resume`;
+
+      const newResume = await createResume({
+        title: defaultTitle,
+        templateId,
+      });
+
+      if (previewTemplate) setPreviewTemplate(null);
+      navigate(`/resume-studio/${newResume.id}`);
+    } catch (err) {
+      console.error('Failed to create resume with template', err);
+      setError(err.message || 'Could not start resume with this template. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div>
-      <PageHeader title="Templates" description="Browse available resume designs." />
+    <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-in fade-in duration-300">
+      {/* Header Section */}
+      <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-80 h-80 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-2xl space-y-2 relative z-10">
+          <div className="flex items-center gap-1.5 text-primary select-none">
+            <span
+              className="material-symbols-outlined text-[18px]"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              auto_awesome
+            </span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              Resume Templates
+            </span>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
+            Choose Your Resume Style
+          </h1>
+
+          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+            Pick a design that fits your career. You can switch templates anytime in the Studio without losing your resume content or section layout.
+          </p>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="mt-6 pt-5 border-t border-border flex items-center gap-2 flex-wrap relative z-10">
+          <span className="text-xs font-semibold text-text-secondary mr-1">Style:</span>
+          {[
+            { id: 'all', label: 'All Styles' },
+            { id: 'classic', label: 'Classic' },
+            { id: 'modern', label: 'Modern' },
+            { id: 'minimal', label: 'Minimal' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveFilter(tab.id)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                activeFilter === tab.id
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'bg-bg-main hover:bg-card border border-border text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {error && <ErrorMessage message={error} className="mb-4" />}
 
-      <Card title="Recommended" subtitle="Built-in templates, ready to use for any new resume." noPadding>
-        <motion.div
-          className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-5"
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-        >
-          {TEMPLATES.map((template) => (
-            <BuiltInTemplateCard key={template.id} template={template} />
-          ))}
-        </motion.div>
-      </Card>
+      {/* Built-in Templates Gallery Grid */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 items-stretch"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+      >
+        {filteredTemplates.map((template) => (
+          <TemplateCard
+            key={template.id}
+            template={template}
+            previewResume={previewResumes[template.id]}
+            onPreview={(tpl) => setPreviewTemplate(tpl)}
+            onSelect={handleSelectTemplate}
+            isSubmitting={isSubmitting}
+          />
+        ))}
+      </motion.div>
 
-      {/* Only shown once there's something to show — an empty "Other"
-          section with nothing in it would just be confusing chrome. */}
-      {isLoading ? (
-        <div className="mt-6">
-          <Loader message="Loading your imported templates..." />
+      {/* Full Size Preview Modal */}
+      <TemplatePreviewModal
+        isOpen={Boolean(previewTemplate)}
+        template={previewTemplate}
+        previewResume={previewTemplate ? previewResumes[previewTemplate.id] : null}
+        onClose={() => setPreviewTemplate(null)}
+        onSelect={handleSelectTemplate}
+        isSubmitting={isSubmitting}
+      />
+
+      {/* Imported CV Templates Section (Preserved for reference / CV upload provenance) */}
+      <div className="pt-8 border-t border-border/80 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-text-primary">
+              Imported CV Designs
+            </h3>
+            <p className="text-xs text-text-secondary">
+              Detected from CV files you have uploaded. Kept for provenance and fingerprinting reference.
+            </p>
+          </div>
+          {importedTemplates.length > 0 && (
+            <span className="text-xs font-medium text-text-secondary">
+              {importedTemplates.length} detected
+            </span>
+          )}
         </div>
-      ) : (
-        importedTemplates.length > 0 && (
-          <Card
-            title="Other"
-            subtitle="Detected from CVs you've uploaded — for reference, not for starting a new resume."
-            noPadding
-            className="mt-6"
+
+        {isLoadingImported ? (
+          <div className="py-6">
+            <Loader message="Loading imported designs..." />
+          </div>
+        ) : importedTemplates.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-text-secondary bg-card/40">
+            No external designs detected yet. When you upload a CV, its structure will appear here.
+          </div>
+        ) : (
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
           >
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-5"
-              variants={staggerContainer}
-              initial="hidden"
-              animate="show"
-            >
-              {importedTemplates.map((template) => (
-                <ImportedTemplateCard
-                  key={template.id}
-                  template={template}
-                  onDelete={handleDelete}
-                  isDeleting={deletingId === template.id}
-                />
-              ))}
-            </motion.div>
-          </Card>
-        )
-      )}
+            {importedTemplates.map((item) => (
+              <ImportedTemplateCard
+                key={item.id}
+                template={item}
+                onDelete={handleDeleteImported}
+                isDeleting={deletingId === item.id}
+              />
+            ))}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

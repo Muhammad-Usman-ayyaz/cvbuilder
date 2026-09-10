@@ -107,46 +107,58 @@ export default function TopNavbar({ onMenuClick, title }) {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 select-none shrink-0 transition-all duration-200">
+    <header className="h-16 border-b border-border bg-card/90 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 select-none shrink-0 transition-all duration-200">
       <div className="flex items-center gap-3 sm:gap-4 min-w-0">
         <button
           onClick={onMenuClick}
-          className="lg:hidden text-text-secondary hover:text-primary p-2 rounded-md hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20"
+          className="lg:hidden text-text-secondary hover:text-primary p-2 rounded-lg hover:bg-bg-main transition-all border border-border/60"
           aria-label="Open navigation menu"
         >
-          <span className="material-symbols-outlined text-[22px]">menu</span>
+          <span className="material-symbols-outlined text-[20px]">menu</span>
         </button>
 
-        <div className="flex items-center gap-2 truncate">
-          <span className="text-xs font-semibold text-text-secondary hidden md:inline-block">
-            Application /
-          </span>
-          <h2 className="text-base sm:text-lg font-extrabold text-text-primary tracking-tight truncate">
-            {displayTitle}
-          </h2>
+        <div className="flex flex-col justify-center min-w-0">
+          {location.pathname === '/dashboard' ? (
+            <div>
+              <h1 className="text-base sm:text-lg font-extrabold text-text-primary tracking-tight leading-tight">
+                Dashboard
+              </h1>
+              <p className="text-[11px] text-text-secondary font-medium hidden md:block leading-tight">
+                Build, improve, and optimize your career profile.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="text-xs font-medium text-text-secondary hidden sm:inline-block">
+                Workspace /
+              </span>
+              <h1 className="text-base sm:text-lg font-bold text-text-primary tracking-tight truncate">
+                {displayTitle}
+              </h1>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         {/* Quick Action: Create Resume Button */}
         <button
           type="button"
           onClick={openCreateResume}
-          className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold text-white bg-primary shadow-sm hover:bg-primary-hover transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover shadow-xs active:scale-[0.98] transition-all"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
-          <span>New Resume</span>
+          <span className="hidden xs:inline">New Resume</span>
         </button>
-
 
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className="text-text-secondary hover:text-primary p-2 rounded-xl hover:bg-bg-main border border-transparent hover:border-border transition-all"
+          className="text-text-secondary hover:text-text-primary p-2 rounded-lg hover:bg-bg-main border border-border/60 hover:border-border transition-all"
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          <span className="material-symbols-outlined text-[22px]">
+          <span className="material-symbols-outlined text-[20px]">
             {theme === 'dark' ? 'light_mode' : 'dark_mode'}
           </span>
         </button>
@@ -155,10 +167,13 @@ export default function TopNavbar({ onMenuClick, title }) {
         <div className="relative" ref={notificationRef}>
           <button
             onClick={toggleNotifications}
-            className="text-text-secondary hover:text-primary p-2 rounded-md hover:bg-bg-main border border-transparent hover:border-border transition-all relative"
+            className="text-text-secondary hover:text-text-primary p-2 rounded-lg hover:bg-bg-main border border-border/60 hover:border-border transition-all relative"
             aria-label="Notifications"
           >
-            <span className="material-symbols-outlined text-[22px]">notifications</span>
+            <span className="material-symbols-outlined text-[20px]">notifications</span>
+            {notifications.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary ring-2 ring-card" />
+            )}
           </button>
 
           {isNotificationsOpen && (
@@ -242,12 +257,12 @@ export default function TopNavbar({ onMenuClick, title }) {
 
               <div className="px-1.5 space-y-0.5">
                 <Link
-                  to="/onboarding"
+                  to="/profile"
                   onClick={() => setIsDropdownOpen(false)}
                   className="w-full text-left px-3 py-2 text-xs font-medium rounded-xl text-text-secondary hover:bg-bg-main hover:text-primary flex items-center gap-2.5 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">account_circle</span>
-                  Edit Profile
+                  Master Profile
                 </Link>
 
                 <button
